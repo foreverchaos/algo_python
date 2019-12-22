@@ -1,0 +1,7 @@
+1. python2, 3区别
+    (1) python2的print是语句，python3的print是函数
+    (2) 除法：python3中'/'显示小数，python2不显示小数 （还有floor除法//）
+    (3) Python 3 默认采用了 UTF-8 作为默认编码，因此你不再需要在文件顶部写 # coding=utf-8 了
+    (4) python3 xrange合并成了range作为生成器
+    (5) python3 有了nonlocal， 嵌套函数中给一个变量声明为非局部变量
+    (6) python2中继承object是新式类，python3中都是新式类，新式类是采用广度优先搜索，旧式类采用深度优先搜索
