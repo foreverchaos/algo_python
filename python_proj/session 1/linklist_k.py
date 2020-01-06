@@ -21,7 +21,7 @@ class ListNode:
 #         head = cur
 #     return head
 
-def reverse_k_group(head: ListNode, k: int) -> ListNode:
+def reverse_k_group(head, k):
     prev = None
     curr = head
     n = k
@@ -55,5 +55,5 @@ if __name__ == '__main__':
     list_node_3.next = list_node_4
     list_node_4.next = list_node_5
     list_node_5.next = list_node_6
-    results = reverse_k_group(list_node_1, 2)
-    print(results.val)
+    results = reverse_k_group(list_node_1, 3)
+    print(results)
