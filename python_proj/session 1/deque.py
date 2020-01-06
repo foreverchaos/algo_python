@@ -16,24 +16,24 @@ def get_window_max(new_list, k):
     return rslt
 
 
-# def get_window_max_enhance(nums, k):
-#     rslt = []
-#     temp = deque([])
-#     if len(nums) < k or not nums:
-#         return []
-#     else:
-#         for key, value in enumerate(nums):
-#             if not temp:
-#                 temp.append(key)
-#             elif value > nums[temp[-1]]:
-#                 temp.append(key)
-#                 temp.popleft()
-#             if key >= k:
-#                 rslt.append(nums[temp[0]])
-#             if key - temp[0] > k:
-#                 temp.popleft()
+def get_window_max_enhance(nums, k):
+    win = []
+    ret = []
+    if len(nums) < k or not nums:
+        return []
+
+    for i, v in enumerate(nums):
+        if i >= k and win[0] <= i - k:
+            win.pop(0)
+        while win and nums[win[-1]] <= v:
+            win.pop()
+        win.append(i)
+        if i >= k - 1:
+            ret.append(nums[win[0]])
+    return ret
 
 
 if __name__ == '__main__':
-    results = get_window_max([1, 3, -1, -3, 5, 3, 6, 7], 3)
+    results = get_window_max_enhance([1, 3, -1, -3, 5, 3, 6, 7], 3)
+    # results = get_window_max_enhance([1, -1], 1)
     print(results)

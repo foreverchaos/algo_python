@@ -8,7 +8,7 @@ class Solution:
         if not self.min_data:
             self.min_data.append(node)
         else:
-            if self.min_data < node:
+            if self.min_data[-1] < node:
                 self.min_data.append(self.min_data[-1])
             else:
                 self.min_data.append(node)
