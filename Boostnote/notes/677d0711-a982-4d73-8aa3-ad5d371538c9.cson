@@ -1,0 +1,255 @@
+createdAt: "2019-08-08T09:03:02.290Z"
+updatedAt: "2019-10-09T09:01:23.871Z"
+type: "SNIPPET_NOTE"
+folder: "a8a34bf81446463f9ca3"
+title: "multi-process/thread"
+tags: []
+description: "multi-process/thread"
+snippets: [
+  {
+    linesHighlighted: []
+    name: "process.py"
+    mode: "Python"
+    content: '''
+      
+      # start a process
+      from multiprocessing import Process
+      import os
+      
+      def run_proc(name):
+          print('Run child process %s (%s)...' % (name, os.getpid()))
+      
+      if __name__=='__main__':
+          print('Parent process %s.' % os.getpid())
+          p = Process(target=run_proc, args=('test',))
+          print('Child process will start.')
+          p.start()
+          p.join()
+          print('Child process end.')
+          
+      
+      # open multiple process  
+      from multiprocessing import Pool
+      import os, time, random
+      
+      def long_time_task(name):
+          print('Run task %s (%s)...' % (name, os.getpid()))
+          start = time.time()
+          time.sleep(random.random() * 3)
+          end = time.time()
+          print('Task %s runs %0.2f seconds.' % (name, (end - start)))
+      
+      if __name__=='__main__':
+          print('Parent process %s.' % os.getpid())
+          p = Pool(4)
+          for i in range(5):
+              p.apply_async(long_time_task, args=(i,))
+          print('Waiting for all subprocesses done...')
+          p.close()
+          p.join()
+          print('All subprocesses done.')
+          
+          
+        
+    '''
+  }
+  {
+    linesHighlighted: []
+    name: "sub_process.py"
+    mode: "Python"
+    content: '''
+      #initiate a sub process
+      import subprocess
+      
+      print('$ nslookup')
+      p = subprocess.Popen(['nslookup'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      output, err = p.communicate(b'set q=mx\\npython.org\\nexit\\n')
+      print(output.decode('utf-8'))
+      print('Exit code:', p.returncode)
+      
+      
+      import subprocess
+      
+      print('$ nslookup www.python.org')
+      r = subprocess.call(['nslookup', 'www.python.org'])
+      print('Exit code:', r)
+    '''
+  }
+  {
+    linesHighlighted: []
+    name: "process communication"
+    mode: "Python"
+    content: '''
+      from multiprocessing import Process, Queue
+      import os, time, random
+      
+      # 写数据进程执行的代码:
+      def write(q):
+          print('Process to write: %s' % os.getpid())
+          for value in ['A', 'B', 'C']:
+              print('Put %s to queue...' % value)
+              q.put(value)
+              time.sleep(random.random())
+      
+      # 读数据进程执行的代码:
+      def read(q):
+          print('Process to read: %s' % os.getpid())
+          while True:
+              value = q.get(True)
+              print('Get %s from queue.' % value)
+      
+      if __name__=='__main__':
+          # 父进程创建Queue，并传给各个子进程：
+          q = Queue()
+          pw = Process(target=write, args=(q,))
+          pr = Process(target=read, args=(q,))
+          # 启动子进程pw，写入:
+          pw.start()
+          # 启动子进程pr，读取:
+          pr.start()
+          # 等待pw结束:
+          pw.join()
+          # pr进程里是死循环，无法等待其结束，只能强行终止:
+          pr.terminate()
+    '''
+  }
+  {
+    linesHighlighted: []
+    name: "thread.py"
+    mode: "Python"
+    content: '''
+      import time, threading
+      
+      # 新线程执行的代码:
+      def loop():
+          print('thread %s is running...' % threading.current_thread().name)
+          n = 0
+          while n < 5:
+              n = n + 1
+              print('thread %s >>> %s' % (threading.current_thread().name, n))
+              time.sleep(1)
+          print('thread %s ended.' % threading.current_thread().name)
+      
+      print('thread %s is running...' % threading.current_thread().name)
+      t = threading.Thread(target=loop, name='LoopThread')
+      t.start()
+      t.join()
+      print('thread %s ended.' % threading.current_thread().name)
+      
+      
+      
+      # import lock
+      
+      balance = 0
+      lock = threading.Lock()
+      
+      def run_thread(n):
+          for i in range(100000):
+              # 先要获取锁:
+              lock.acquire()
+              try:
+                  # 放心地改吧:
+                  change_it(n)
+              finally:
+                  # 改完了一定要释放锁:
+                  lock.release()
+    '''
+  }
+  {
+    linesHighlighted: []
+    name: "thread_local.py"
+    mode: "Python"
+    content: '''
+      import threading
+          
+      # 创建全局ThreadLocal对象:
+      local_school = threading.local()
+      
+      def process_student():
+          # 获取当前线程关联的student:
+          std = local_school.student
+          print('Hello, %s (in %s)' % (std, threading.current_thread().name))
+      
+      def process_thread(name):
+          # 绑定ThreadLocal的student:
+          local_school.student = name
+          process_student()
+      
+      t1 = threading.Thread(target= process_thread, args=('Alice',), name='Thread-A')
+      t2 = threading.Thread(target= process_thread, args=('Bob',), name='Thread-B')
+      t1.start()
+      t2.start()
+      t1.join()
+      t2.join()
+    '''
+  }
+  {
+    name: "producer-consumer"
+    mode: "Python"
+    content: '''
+      class ThreadWorker(Thread):
+          """
+          A Thread class that process start and restart request.
+          """
+      
+          def __init__(self, queue):
+              """
+              :param queue: the specified thread queue
+              """
+              super(ThreadWorker, self).__init__()
+              self.queue = queue
+      
+          def run(self):
+              """
+              Takes the commands off of the queue and performs them
+              """
+              while True:
+                  (puppet, action, args, kwargs) = self.queue.get()
+                  try:
+                      getattr(puppet, action)(*args, **kwargs)
+                  except Exception as exc:
+                      puppet.logger.error(
+                          "Failed to execute {a}. {e}".format(a=action, e=exc))
+                  self.queue.task_done()
+                 
+      
+      class SplunkPuppeteer(BasePuppeteer):
+          """
+          SplunkPuppeteer manages a list of splunk puppets
+          """
+      
+          def __init__(self, puppets):
+              """
+              SplunkPuppeteer init
+      
+              :type puppets: SplunkPuppet[]
+              :param puppets: the specified puppets
+              """
+              super(SplunkPuppeteer, self).__init__(puppets)
+              self.thread_queue = Queue.Queue(maxsize=0)
+              
+          def _execute_concurrently(self, action, *args, **kwargs):
+              """
+              Execute action on puppets concurrently
+      
+              :param action: the specified action name
+              :param args: the specified args
+              :param kwargs: the specified kw args
+              """
+              for puppet in self.puppets:
+                  if puppet.splunk.is_installed():
+                      thread = ThreadWorker(self.thread_queue)
+                      thread.setDaemon(True)
+                      thread.start()
+                      self.thread_queue.put((puppet, action, args, kwargs))
+                  else:
+                      self.logger.warn(
+                          "The puppet {p} doesn't have splunk installed "
+                          "yet.".format(p=puppet))
+              self.thread_queue.join()
+    '''
+    linesHighlighted: []
+  }
+]
+isStarred: false
+isTrashed: false

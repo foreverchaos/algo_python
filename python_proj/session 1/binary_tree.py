@@ -71,6 +71,22 @@ def after_order(root):
         node = node.left
 
 
+def layer_order(root):
+    if root is None:
+        return
+    queue, results = [], []
+    node = root
+    queue.append(node)
+    while queue:
+        node = queue.pop(0)
+        results.append(node)
+        if node.left:
+            queue.append(node.left)
+        if node.right:
+            queue.append(node.right)
+    return results
+
+
 if __name__ == '__main__':
     root = Node('D', Node('B', Node('A'), Node('C')), Node('E', right=Node('G', Node('F'))))
     print('前序遍历：')

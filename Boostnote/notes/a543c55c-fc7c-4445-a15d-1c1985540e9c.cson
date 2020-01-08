@@ -1,0 +1,44 @@
+createdAt: "2019-07-26T06:02:59.748Z"
+updatedAt: "2019-07-26T06:28:59.894Z"
+type: "MARKDOWN_NOTE"
+folder: "f31f9519b034f5ea09d8"
+title: "Forwarder"
+tags: []
+content: '''
+  # Forwarder
+  
+  ## Forwarder capability
+  - tagging of metadata
+  - configurable buffering (send data with buffer)
+  - data compression
+  - SSL security
+  - different port
+  
+  ## Universal/ Heavy forwarder
+  > universal send unparsed data, heavy send parsed data
+  > universal cannot search or produce alert, has no python interpreter
+  
+  ## outputs.conf/input.conf
+  - forwarder config output.conf, indexer config input.conf
+  - outputs.conf: defaultGroup=indexer1, indexer2, configure multiple indexer
+  - compression: set in output.conf
+  - SSL: sslpassword, sslCertPath, sslRootCAPath in output.conf, [ssl] in input.conf
+  - load balancing: 
+    By time (30s): configure multiple servers in output.conf, switch server every 30s
+    By volume: set volumn to send data to indexer
+    
+  ## Queue
+    > if receiver/indexer can not be reached, forwarder will send data in queue
+  
+  ## pipeline sets (send data with multiprocess)
+  - server.conf: parallelingestionpipline
+  
+  ## token based forwarder
+  - configure token into output.conf to specific certain token
+  
+  ## indexer discovery
+  - Indexer Master - server.conf / [indexer_discovery], forwarder - output.conf / [indexer_discovery]
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

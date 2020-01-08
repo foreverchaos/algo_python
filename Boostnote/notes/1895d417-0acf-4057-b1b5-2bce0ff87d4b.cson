@@ -1,0 +1,160 @@
+createdAt: "2019-08-05T08:01:01.130Z"
+updatedAt: "2019-08-05T08:51:55.565Z"
+type: "SNIPPET_NOTE"
+folder: "a8a34bf81446463f9ca3"
+title: "generate function for specific object /module"
+tags: []
+description: "generate function for specific object /module"
+snippets: [
+  {
+    linesHighlighted: []
+    name: "rest.py"
+    mode: "Python"
+    content: '''
+      def gen_edit(id_name, sub_endpoint='', urlparam=None, *args, **kwargs):
+          \'''
+          A generic 'post' method for a particular object of the endpoint
+          \'''
+      
+          if isinstance(id_name, unicode):
+              id_name = id_name.encode('utf-8')
+      
+          if args:
+              if kwargs:
+                  args = list(args) + list(kwargs.items())
+              body = args
+          else:
+              body = kwargs
+      
+          uri = "{uri}/{id}{sub_ep}".format(
+              uri=uri_value, id=urllib.quote(id_name, safe=''),
+              sub_ep=(sub_endpoint
+                      if (sub_endpoint == '' or
+                          sub_endpoint.startswith('/'))
+                      else '/{s}'.format(s=sub_endpoint)))
+      
+          return self.conn.make_request(
+              'POST', uri=uri, urlparam=urlparam, body=body)
+      
+      gen_edit.__doc__ = \'''
+          Edit method for the '{ep}' endpoint.
+          - uri: '{uri}'
+      
+          :type id_name: string
+          :param id_name: the id of the object.
+      
+          :type sub_endpoint: string
+          :param sub_endpoint: child endpoint of the base endpoint
+      
+          :return: the return value from the make_request on the endpoint
+          \'''.format(ep=uri_name, uri=uri_value)
+      gen_edit.__name__ = 'edit_{ep}'.format(ep=uri_name)
+      setattr(self, gen_edit.__name__, gen_edit)
+    '''
+  }
+  {
+    linesHighlighted: []
+    name: "gen_fixture.py"
+    mode: "Python"
+    content: '''
+      def gen_streaming_input_log_fixture(
+              logfile_name, srctype, event_count, target_module, fixture_name,
+              index=INDEX_NAME, scope='session', index_wait=480,
+              index_settings=None, srctype_settings=None):
+          """
+          Generates streaming input log fixture
+      
+          :type logfile_name: string
+          :param logfile_name: the specified log file name
+      
+          :type srctype: string
+          :param srctype: the specified sourcetype
+      
+          :type event_count: int
+          :param event_count: the specified event count
+      
+          :type target_module: Module
+          :param target_module: the target module to hold the fixture
+      
+          :type fixture_name: string
+          :param fixture_name: the specified fixture name
+      
+          :type index: string
+          :param index: the specified index
+      
+          :type scope: string
+          :param scope: the specified pytest scope
+      
+          :type index_wait: int
+          :param index_wait: time out of waiting for indexing complete
+      
+          :type index_settings: dict
+          :param index_settings: the specified index settings
+      
+          :type srctype_settings: dict
+          :param srctype_settings: the specified sourcetype settings
+          """
+      
+          if fixture_name is None:
+              fixture_name = FIXTURE_NAME_REGEX.sub('_', logfile_name)
+      
+          @pytest.fixture(scope=scope)
+          def streaming_input_log_fixture(request, theatre_deployment):
+      
+              stage = theatre_deployment.stage
+      
+              if hasattr(stage, 'site1'):
+                  indexer = stage.site1.indexers.head
+                  search_head = stage.site1.search_heads.head
+              else:
+                  indexer = stage.indexers.head
+                  search_head = stage.search_heads.head
+      
+              # skip downloading if --ignore-log-input is specified
+              if not request.config.option.ignore_log_input:
+                  download_source(logfile_name)
+      
+              log_object = monitorlog.StreamingInputLog(
+                  logfile_name=logfile_name,
+                  sourcetype=srctype, event_count=event_count, index=index,
+                  username=indexer.splunk.username,
+                  password=indexer.splunk.password,
+                  mgmt_url=indexer.uri_base(),
+                  index_wait=index_wait)
+      
+              if request.config.option.ignore_log_input:
+                  return log_object
+      
+              if stage.cluster_masters.size != 0:
+                  cluster_master = stage.cluster_masters.first()
+              else:
+                  cluster_master = None
+      
+              prepare_index_and_sourcetype(
+                  cluster_master, [indexer], index, srctype,
+                  index_settings=index_settings,
+                  srctype_settings=srctype_settings)
+      
+              request.addfinalizer(lambda: log_object.teardown())
+      
+              try:
+                  log_object.setup()
+                  if log_object.get_current_event_count(rest=search_head.rest) == 0:
+                      log_object.index_log()
+                      log_object.wait_for_event_count(rest=search_head.rest)
+              except Exception as err:
+                  log_object.logger.error(
+                      "Failed to index the log file. {e}".format(e=err))
+      
+              return log_object
+          streaming_input_log_fixture.__name__ = normalize_to_str(fixture_name)
+          streaming_input_log_fixture.__doc__ = u\'''
+                  Streaming input the {log} in the test data dir into indexer
+              \'''.format(log=logfile_name)
+      
+          target_module.__dict__[fixture_name] = streaming_input_log_fixture
+    '''
+  }
+]
+isStarred: false
+isTrashed: false

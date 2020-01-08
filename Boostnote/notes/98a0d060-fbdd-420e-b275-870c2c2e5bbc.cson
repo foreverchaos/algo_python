@@ -1,0 +1,17 @@
+createdAt: "2019-07-26T06:29:02.756Z"
+updatedAt: "2019-07-26T06:33:24.572Z"
+type: "MARKDOWN_NOTE"
+folder: "f31f9519b034f5ea09d8"
+title: "Deployment management"
+tags: []
+content: '''
+  # Deployment management
+  
+  > Deployment server is a built-in tool for managing splunk instances
+  
+  ## client - forwarder
+  > deploymentclient.conf on forwarder
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

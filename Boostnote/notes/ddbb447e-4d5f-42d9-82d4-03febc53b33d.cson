@@ -1,0 +1,41 @@
+createdAt: "2019-07-27T04:06:52.539Z"
+updatedAt: "2019-07-27T05:55:10.943Z"
+type: "MARKDOWN_NOTE"
+folder: "f31f9519b034f5ea09d8"
+title: "Distribute Search"
+tags: []
+content: '''
+  # Distribute Search
+  
+  - knowledge bundle replication 
+  > add knowledge object on search head, then bundle the object to http post to search     peers (add field alias on search head, it could be searched on search peers)
+  
+  - under search head /opt/splunk/var/run, store knowledge bundle
+  ---
+  ## search head cluster
+  
+  - search head captain do knowledge bundle replication/transfer
+  ---
+  - bewteen search head, do conf replication (CLI, rest)
+  > 1. member pull captain changes from captain
+  > 2. then member merge change to local
+  > 3. then push local to captain
+  
+  - search job inspect->/var/run/splunk/dispatch
+  > captain: saved search copy search artifact to all search member
+  
+  
+  ### deployer (which could not be configured by knowledge bundle replication)
+  - add-on apps
+  - index conf
+  
+  ### index cluster
+  - bucket: 
+  > searchable bucket (with index file and data)
+  >non-searchable bucket (without index file)
+  > primary bucket: notify search head for primary search
+  
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

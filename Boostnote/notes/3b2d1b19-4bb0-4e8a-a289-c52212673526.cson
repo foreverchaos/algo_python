@@ -1,0 +1,20 @@
+createdAt: "2019-08-06T03:06:11.305Z"
+updatedAt: "2019-08-28T07:35:13.870Z"
+type: "MARKDOWN_NOTE"
+folder: "1b426d7766d1e36b59e7"
+title: "Indexer Cluster"
+tags: []
+content: '''
+  # Indexer Cluster
+  
+  ## buckets lifecycle
+  - if new hot bucket appears, indexer inform CM to add bucket (do replication), CM will nominate replication behaviour
+  - every indexer state replication will response the state back to CM
+  
+  
+  ## C1 env, cannot add one shot on search head
+  - because /etc/system/local/outputs.conf, only configure white list for two indexs
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

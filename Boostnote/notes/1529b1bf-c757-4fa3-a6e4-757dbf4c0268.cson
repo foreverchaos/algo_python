@@ -1,0 +1,43 @@
+createdAt: "2019-08-27T02:23:02.213Z"
+updatedAt: "2019-10-09T07:56:14.004Z"
+type: "MARKDOWN_NOTE"
+folder: "1b426d7766d1e36b59e7"
+title: "Other tips"
+tags: []
+content: '''
+  # Other tips
+  
+  ## Pycharm edit and continue
+  
+  - Work in Pycharm on a python project :-)
+  - Execute your code in Debug mode (did not tried Release so far)
+  - Edit some code in one your modules imported during the life of your program
+  - Make your program pause. To achieve this, you can click the "Pause" button of in PyCharms Debug view and then any place in your applications main window where it would need to do something (for example on a tab header). If you have a long a running task and no UI, you may place a breakpoint in a place your program often comes by.
+  - In the Debug view, switch to the Console tab. There is a button on the left Show command line. Click this.
+  - In the console, type in reload(MyModifiedModule) if this call fails, write import MyModifiedModule and try again.
+  - Click resume in PyCharm.
+  - Try the code you fixed.
+  - PyCharm Debug View
+  
+  ![a5c391dc.png](:storage/1529b1bf-c757-4fa3-a6e4-757dbf4c0268/a5c391dc.png)
+  
+  There are some restrictions on this... It won't fix changes in your main method or main window, cause it won't be created again. In my tests I could not reload widgets from Qt. But it worked for classes like data containers or workers.
+  
+  ## copy code into vi
+  - vim进入paste模式，命令如下：:set paste
+  - 进入paste模式之后，再按i进入插入模式，进行复制、粘贴就很正常了。 
+  - 解除paste模式。:set nopaste
+  
+  
+  ## git get remote branch
+  - git checkout -b datf_migration origin/epic/datf_migration
+  
+  ## pip conf
+  [global]
+  timeout = 120
+  index-url = http://repo.splunk.com/artifactory/api/pypi/pypi-virtual/simple
+  trusted-host = repo.splunk.com
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

@@ -1,0 +1,30 @@
+{
+  "folders": [
+    {
+      "key": "ab5896131075829e08f6",
+      "color": "#1278BD",
+      "name": "Default"
+    },
+    {
+      "key": "1b426d7766d1e36b59e7",
+      "color": "#B013A4",
+      "name": "Splunk"
+    },
+    {
+      "key": "f31f9519b034f5ea09d8",
+      "color": "#3FD941",
+      "name": "Training"
+    },
+    {
+      "key": "a8a34bf81446463f9ca3",
+      "color": "#E10051",
+      "name": "code sample"
+    },
+    {
+      "key": "c75bf4e7ed3c2027bb4a",
+      "color": "#2BA5F7",
+      "name": "lib"
+    }
+  ],
+  "version": "1.0"
+}
