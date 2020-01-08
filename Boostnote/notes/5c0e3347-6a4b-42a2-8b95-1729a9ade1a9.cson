@@ -1,0 +1,17 @@
+createdAt: "2019-08-07T05:10:46.890Z"
+updatedAt: "2019-08-07T08:51:49.122Z"
+type: "SNIPPET_NOTE"
+folder: "a8a34bf81446463f9ca3"
+title: ""
+tags: []
+description: ""
+snippets: [
+  {
+    linesHighlighted: []
+    name: "abc.json"
+    mode: "JSON"
+    content: "'{\"links\":{},\"origin\":\"https://10.224.33.5:8089/servicesNS/nobody/splunk_gdi/admin/summarization\",\"updated\":\"2019-08-07T05:08:13+00:00\",\"generator\":{\"build\":\"0218accd52b0\",\"version\":\"8.0.0\"},\"entry\":[{\"name\":\"tstats:DM_splunk_gdi_test_dm_acc_i2ut6r\",\"id\":\"https://10.224.33.5:8089/servicesNS/nobody/splunk_gdi/admin/summarization/tstats%3ADM_splunk_gdi_test_dm_acc_i2ut6r\",\"updated\":\"1970-01-01T00:00:00+00:00\",\"links\":{\"alternate\":\"/servicesNS/nobody/splunk_gdi/admin/summarization/tstats%3ADM_splunk_gdi_test_dm_acc_i2ut6r\",\"list\":\"/servicesNS/nobody/splunk_gdi/admin/summarization/tstats%3ADM_splunk_gdi_test_dm_acc_i2ut6r\",\"remove\":\"/servicesNS/nobody/splunk_gdi/admin/summarization/tstats%3ADM_splunk_gdi_test_dm_acc_i2ut6r\",\"reschedule\":\"/servicesNS/nobody/splunk_gdi/admin/summarization/tstats%3ADM_splunk_gdi_test_dm_acc_i2ut6r/reschedule\",\"touch\":\"/servicesNS/nobody/splunk_gdi/admin/summarization/tstats%3ADM_splunk_gdi_test_dm_acc_i2ut6r/touch\"},\"author\":\"nobody\",\"acl\":{\"app\":\"splunk_gdi\",\"can_list\":true,\"can_write\":true,\"modifiable\":false,\"owner\":\"nobody\",\"perms\":null,\"removable\":false,\"sharing\":\"user\"},\"fields\":{\"required\":[],\"optional\":[\"isProxyRequest\",\"noProxy\",\"time_format\"],\"wildcard\":[]},\"content\":{\"eai:acl\":null,\"search\":\"search search (index=* OR index=_*) (index=test_dm_index_9syci7) | eval nodename = \\\\\"TenData\\\\\" | fields nodename, _time, host, source, sourcetype\",\"summary.access_count\":0,\"summary.access_time\":0,\"summary.buckets\":0,\"summary.buckets_size\":0,\"summary.complete\":0,\"summary.earliest_time\":0,\"summary.id\":\"DM_splunk_gdi_test_dm_acc_i2ut6r\",\"summary.is_inprogress\":false,\"summary.last_error\":\"\",\"summary.last_sid\":\"\",\"summary.latest_time\":0,\"summary.mod_time\":0,\"summary.size\":0,\"summary.time_range\":0}}],\"paging\":{\"total\":1,\"perPage\":30,\"offset\":0},\"messages\":[]}'"
+  }
+]
+isStarred: false
+isTrashed: true

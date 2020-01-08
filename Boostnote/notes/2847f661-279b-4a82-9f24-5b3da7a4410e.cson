@@ -1,0 +1,28 @@
+createdAt: "2019-07-27T04:25:01.316Z"
+updatedAt: "2019-08-12T07:42:38.107Z"
+type: "MARKDOWN_NOTE"
+folder: "1b426d7766d1e36b59e7"
+title: "Migration Tips"
+tags: []
+content: '''
+  # Migration Tips
+  - '# vim: set fileencoding=utf-8 :' in code header
+  - need '[MIGRATION]' field for original case
+  - polling method for 'while…timeout'
+  - using .format to replace str1 + str2
+  - avoid using global()
+  
+  
+  # high level API issue, sub endpoint with '//'
+  ```python
+  url_quoted_stanza = urllib.quote('replication_port-ssl://11111', safe=' ')
+  splunk.rest.edit_config('conf-server', name='replication_port-ssl://11111', output_mode='json')
+  splunk.rest.check_config('conf-server', url_quoted_stanza)
+  splunk.rest.delete_config('conf-server', url_quoted_stanza, output_mode='json')
+  
+  ```
+  
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

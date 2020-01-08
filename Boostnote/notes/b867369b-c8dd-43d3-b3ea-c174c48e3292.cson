@@ -1,0 +1,25 @@
+createdAt: "2019-07-30T02:08:47.060Z"
+updatedAt: "2019-07-30T02:53:43.867Z"
+type: "MARKDOWN_NOTE"
+folder: "f31f9519b034f5ea09d8"
+title: "Get data in"
+tags: []
+content: '''
+  # Get data in
+  
+  conf priority
+  
+  - input phase: (read configure from system, then sort by app alphabet)
+  etc/system/local
+  etc/search/local
+  etc/unix/local
+  etc/search/default
+  etc/unix/default
+  
+  
+  ## verify conf priority
+  splunk btool input list
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

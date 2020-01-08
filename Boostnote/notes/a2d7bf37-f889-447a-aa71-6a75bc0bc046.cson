@@ -1,0 +1,87 @@
+createdAt: "2019-07-27T05:54:13.097Z"
+updatedAt: "2019-07-27T05:54:42.083Z"
+type: "SNIPPET_NOTE"
+folder: "a8a34bf81446463f9ca3"
+title: "summarization code"
+tags: []
+description: '''
+  summarization code
+  
+'''
+snippets: [
+  {
+    linesHighlighted: []
+    name: "workload_management.py"
+    mode: "Python"
+    content: '''
+          def rebuild_summarization_from_data_model(self, splunk,
+                                                    data_model_name,
+                                                    dm_summarization,
+                                                    user='nobody',
+                                                    app="search", timeout=300):
+              """
+              Delete summarization of data model acceleration for rebuild
+      
+              :type splunk: splunk - standalones
+              :param splunk: splunk instance
+      
+              :type data_model_name: str
+              :param data_model_name: name of data model
+      
+              :type dm_summarization: str
+              :param dm_summarization: summarization of data model
+      
+              :type app: str
+              :param app: app in splunk
+      
+              :type user: str
+              :param user: user for splunk namespace
+      
+              :type timeout: int
+              :param timeout: timeout for get data model summarization
+      
+              """
+      
+              polling.poll_for_condition(lambda: bool(
+                  data_model_name in self.get_summarization_from_data_model_rest(
+                      splunk, dm_summarization, app=app)['summary.id']),
+                                         timeout=timeout, frequency=1)
+      
+              with splunk.rest.namespace(user, app):
+                  splunk.rest.delete_transparent_summarization(dm_summarization)
+      
+          @staticmethod
+          def get_summarization_from_data_model_rest(splunk,
+                                                     dm_summarization,
+                                                     user='nobody', app="search"):
+      
+              """
+              Rebuild summarization for data model acceleration
+      
+              :type splunk: splunk - standalones
+              :param splunk: splunk instance
+      
+              :type dm_summarization: str
+              :param dm_summarization: summarization of data model
+      
+              :type user: str
+              :param user: user for splunk namespace
+      
+              :type app: str
+              :param app: app in splunk
+      
+              """
+      
+              with splunk.rest.namespace(user, app):
+                  content = json.loads(
+                      splunk.rest.get_transparent_summarization(
+                          dm_summarization, output_mode='json')
+                      [1])['entry'][0]['content']
+      
+              return content
+      
+    '''
+  }
+]
+isStarred: false
+isTrashed: false

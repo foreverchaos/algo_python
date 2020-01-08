@@ -1,0 +1,56 @@
+createdAt: "2019-11-15T09:43:59.176Z"
+updatedAt: "2019-11-15T09:52:50.791Z"
+type: "SNIPPET_NOTE"
+folder: "a8a34bf81446463f9ca3"
+title: "install splunk manully in empty container applied by Orca"
+tags: []
+description: "install splunk manully in empty container applied by Orca"
+snippets: [
+  {
+    linesHighlighted: []
+    name: ""
+    mode: "Python"
+    content: '''
+      splunk_orca create --container-type num_of_vm --so 1
+      
+      test_config:
+      
+      Test_Runs:
+        - pytest_args: ""
+       NUM_OF_VM: 1
+      
+        
+      @pytest.yield_fixture(scope="function")
+        def theatre_deployment(self, request, splunk_hosts):
+            """
+            for the cases, we need a pure splunk without launched before testing,
+            so we create customized theatre_deployment
+            which consumes splunk installed in empty container
+            """
+            connection = SSHConnection(
+                host=splunk_hosts.hosts[0],
+                port=splunk_hosts.ssh_port,
+                user=splunk_hosts.ssh_username,
+                identity=splunk_hosts.ssh_identity)
+            splunk_home = os.path.join(splunk_hosts.install_dir, 'splunk')
+            name = "splunk_{}".format(request.function.__name__)
+      
+            splunk = SplunkFactory.getSplunk(
+                splunk_home, name=name, connection=connection)
+            splunk.install_nightly(
+                branch=request.config.getvalue('nightly_branch'),
+                build=request.config.getvalue('changelist'),
+                package_type=request.config.getvalue('product'))
+      
+            deployment = StandaloneDeployment(splunk)
+            deployment.consume()
+      
+            yield deployment
+      
+            splunk.uninstall()
+      
+    '''
+  }
+]
+isStarred: false
+isTrashed: false

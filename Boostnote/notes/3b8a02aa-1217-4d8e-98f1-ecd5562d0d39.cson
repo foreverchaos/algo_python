@@ -1,0 +1,46 @@
+createdAt: "2019-07-27T04:26:33.647Z"
+updatedAt: "2019-10-30T06:47:17.494Z"
+type: "MARKDOWN_NOTE"
+folder: "1b426d7766d1e36b59e7"
+title: "Splunk Architecture"
+tags: []
+content: '''
+  # Splunk Architecture
+  - 8089 is rest endpoint port (RIP class construct restful call, default port is 8089)
+  - ---
+  - 8088 is HEC (HTTP Event Collector), used to send data or event to Splunk
+  - ---
+  - index->event, can recognize index is a DB table, event is row collection of data in this table
+  - --
+  - A file system directory containing a portion of a Splunk Enterprise index.
+  - ---
+  - A Splunk Enterprise index typically consists of many buckets, organized by age.
+  - ---
+  - Oneshot means add file once without monitoring
+  
+  
+  - authorize.conf for roles
+  - etc/passwd for create/edit user
+  - using rip edit to change conf, do not need to restart, otherwise need restart
+  
+  
+  - cron_shedule
+  -  search actually runs on:
+  
+  ```
+    * * * * *     Every minute.
+    */M * * * *   Every M minutes (M > 0).
+    0 * * * *     Every hour.
+    0 */H * * *   Every H hours (H > 0).
+    0 0 * * *     Every day (at midnight).
+  ```
+  
+  - set splunk branch commit hash code
+  
+  <http://releases.splunk.com/dl/quake_builds/8.0.0-20191019-0005/>
+  
+  ![35e1d6c4.png](:storage/3b8a02aa-1217-4d8e-98f1-ecd5562d0d39/35e1d6c4.png =300x)
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

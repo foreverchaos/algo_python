@@ -1,0 +1,52 @@
+createdAt: "2019-07-25T09:27:15.369Z"
+updatedAt: "2019-11-13T08:15:59.387Z"
+type: "MARKDOWN_NOTE"
+folder: "1b426d7766d1e36b59e7"
+title: "Environment setup"
+tags: []
+content: '''
+  # Environment setup
+  
+  ## Splunk instance :memo:
+  - Local splunk build access: admin, changeme
+  ***
+  - orca create deployment:
+  
+    >splunk_orca -v --printer sdd-json --deployment-file orca_deployment.json create --sc C1 --perf --cluster-affinity=orca-local-debug-m5-large
+    
+    >orca --printer sdd-json --deployment-file orca_deployment.json create --sc search_head_cluster_generic --perf --dynamic --splunk-branch=current
+  ---
+  - pytest run on deployment created by orca
+    >py.test --ignore-mule -v --deployment-type=S1 --infra-type=ucp (run second times and do not download log files again)
+  ![80974dff.png](:storage/01c8ac48-5de0-4619-8d86-b6311e0a360f/80974dff.png =500x)
+  ---
+  - splunk_repo = http://repo.splunk.com/artifactory/api/pypi/pypi-virtual/simple
+  ---
+  - SSH container
+    >splunk_orca --verbose show containers --deployment-id ayu190628073230wm74e
+  ---
+  - check connection:
+    >ssh -p 2222 -i ~/.orca/id_rsa ansible@10.224.88.252
+    >sftp -P 2222 -i ~/.orca/id_rsa ansible@10.224.88.252
+    delete known host from .ssh
+  ---
+  - office license
+    cyang4096@splunk.onmicrosoft.com 
+  
+  ---
+  - manual to setup sftp
+  > change /etc/ssh/sshd_config，reboot sshd using systemctl
+  > ![b011859d.png](:storage/01c8ac48-5de0-4619-8d86-b6311e0a360f/b011859d.png =500x)
+  > 
+  
+  ---
+  - setup self-defined splunk using empty orca containers
+  [DATF_Usage](https://confluence.splunk.com/display/CICD/Run+and+Debug+DATF+Test+Cases)
+  [test_rack_with_orca](https://git.splunk.com/projects/SPLCORE/repos/qa/browse/agnostic_test/custom_rack/test_custom_rack.py?at=test/jzhang/DATF-sample-tests-hosts-fixture)
+'''
+linesHighlighted: [
+  12
+  6
+]
+isStarred: false
+isTrashed: false
