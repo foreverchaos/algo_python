@@ -66,6 +66,7 @@ print res2
 # def multi():
 #     return [lambda x : i*x for i in range(4)]
 
+
 def multi():
     res =[]
     def inner(x):
@@ -75,10 +76,16 @@ def multi():
 
     return res
 
+
 a = multi()[0](3)
 print a
 
 # temp_arr = [m(3) for m in multi()]
 # print temp_arr
-x= 2
+x = 2
 print map(lambda x:x**2, [y for y in range(3)])
+
+dogdistance = {'dog-dog': 33, 'dog-cat': 36, 'dog-car': 41, 'dog-bird': 42}
+
+min(dogdistance, key=dogdistance.get)
+max(dogdistance, key=dogdistance.get)

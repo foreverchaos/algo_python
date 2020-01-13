@@ -1,3 +1,13 @@
+"""
+一条包含字母 A-Z 的消息通过以下方式进行了编码：
+
+'A' -> 1
+'B' -> 2
+...
+'Z' -> 26
+给定一个只包含数字的非空字符串，请计算解码方法的总数。
+"""
+
 
 def numdecode(nums):
     l = list(nums)
@@ -34,7 +44,7 @@ def decode_dynamic(nums):
         dp[1] = dp[0]
     if temp > 26 and int(l[1]) > 0:
         dp[1] = dp[0]
-    if int(l[1]) == 0:
+    if temp > 26 and int(l[1]) == 0:
         dp[1] = 0
 
     for i in range(2, len(l)):
@@ -52,5 +62,5 @@ def decode_dynamic(nums):
 
 
 if __name__ == '__main__':
-    results = decode_dynamic('301')
-    print results
+    results = decode_dynamic('206')
+    print(results)

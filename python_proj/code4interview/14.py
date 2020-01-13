@@ -1,3 +1,6 @@
+"""
+输入一个链表，输出该链表中倒数第k个结点。
+"""
 
 class ListNode:
     def __init__(self, x):
@@ -33,4 +36,4 @@ if __name__ == '__main__':
     node2.next = node3
     node3.next = node4
     node4.next = node5
-    print find_kth_to_tail(node1, 5)
+    print(find_kth_to_tail(node1, 5))

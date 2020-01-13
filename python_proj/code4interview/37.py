@@ -1,3 +1,8 @@
+"""
+统计一个数字在排序数组中出现的次数。
+"""
+
+
 def get_number_of_k(data, k):
     low = 0
     high = len(data) - 1
@@ -26,4 +31,4 @@ def get_number_of_k(data, k):
 
 
 if __name__ == '__main__':
-    print get_number_of_k([1, 2, 3, 4, 4, 6], 6)
+    print(get_number_of_k([1, 2, 3, 4, 4, 6], 6))

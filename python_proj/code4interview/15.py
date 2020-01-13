@@ -1,3 +1,7 @@
+"""
+输入一个链表，反转链表后，输出新链表的表头。
+"""
+
 
 class ListNode:
     def __init__(self, x):
@@ -28,4 +32,4 @@ if __name__ == '__main__':
     node2.next = node3
     node3.next = node4
     node4.next = node5
-    print reverse_linklist(node1)
+    print(reverse_linklist(node1))

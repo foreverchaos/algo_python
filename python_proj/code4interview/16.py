@@ -1,3 +1,7 @@
+"""
+输入两个单调递增的链表，输出两个链表合成后的链表，当然我们需要合成后的链表满足单调不减规则
+"""
+
 
 class ListNode:
     def __init__(self, x):
@@ -8,17 +12,9 @@ class ListNode:
 def merge_linklist(pHead1, pHead2):
     if not pHead1 and not pHead2:
         return None
-    if pHead1 and not pHead2:
-        return pHead1
-    elif not pHead1 and pHead2:
-        return pHead2
     i, j = pHead1, pHead2
-    if pHead1.val <= pHead2.val:
-        new_head = pHead1
-        i = pHead1.next
-        new_head.next = None
-
-    temp = new_head
+    start = ListNode(0)
+    temp = start
     while i and j:
         if i.val <= j.val:
             temp.next = i
@@ -27,11 +23,8 @@ def merge_linklist(pHead1, pHead2):
             temp.next = j
             j = j.next
         temp = temp.next
-    if i:
-        temp.next = i
-    if j:
-        temp.next = j
-    return new_head
+    temp.next = i or j
+    return start.next
 
 
 if __name__ == '__main__':
@@ -43,4 +36,4 @@ if __name__ == '__main__':
     node1.next = node4
     node4.next = node5
     node2.next = node3
-    print merge_linklist(node1, node2)
+    print(merge_linklist(node1, node2))

@@ -1,3 +1,8 @@
+"""
+用两个栈来实现一个队列，完成队列的Push和Pop操作。 队列中的元素为int类型。
+"""
+
+
 class SelfQueue:
     def __init__(self):
         self.stack1 = []
@@ -22,4 +27,4 @@ if __name__ == '__main__':
     s.push(3)
     s.pop()
     s.push(4)
-    print s.pop()
+    print(s.pop())

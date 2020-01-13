@@ -112,3 +112,6 @@ SSL 客户端认证
 
 基于表单认证
 基于表单的认证方法并不是在 HTTP 协议中定义的，客户端会向服务器上 Web 应用发送登录信息，按登录信息的验证结果认证。
+
+
+mac software: karabiner elements, RDM, iTerms

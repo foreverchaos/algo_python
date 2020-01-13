@@ -14,4 +14,4 @@ def get_prime_number(n):
 
 
 if __name__ == '__main__':
-    print get_prime_number(100)
+    print(get_prime_number(100))

@@ -1,3 +1,8 @@
+"""
+输入n个整数，找出其中最小的K个数。例如输入4,5,1,6,2,7,3,8这8个数字，则最小的4个数字是1,2,3,4,。
+"""
+
+
 def get_least_numbers(tinput, k):
     l = len(tinput)
     i, j = 0, l-1
@@ -40,7 +45,7 @@ def test_new(tinput, k):
         i = k - 1
         while i >= 0 and item < tmp[i]:
             i -= 1
-        if i < k:
+        if i < k-1:
             tmp.insert(i + 1, item)
             tmp.pop()
 
@@ -49,4 +54,4 @@ def test_new(tinput, k):
 
 if __name__ == '__main__':
     n = [4, 5, 1, 6, 2, 7, 3, 8]
-    print test_new(n, 4)
+    print(test_new(n, 4))

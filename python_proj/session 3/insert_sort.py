@@ -8,7 +8,17 @@ def insert_sort(nums):
     return nums
 
 
+def insert_sort_new(nums):
+    for i in range(1, len(nums)):
+        j = i - 1
+        while j >= 0 and nums[i] < nums[j]:
+            nums[i], nums[j] = nums[j], nums[i]
+            j -= 1
+            i -= 1
+    return nums
+
+
 if __name__ == '__main__':
     arr = [64, 34, 25, 12, 22, 11, 90]
-    sorted_arr = insert_sort(arr)
+    sorted_arr = insert_sort_new(arr)
     print(sorted_arr)

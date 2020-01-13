@@ -1,3 +1,8 @@
+"""
+输入一个链表，按链表值从尾到头的顺序返回一个ArrayList。
+"""
+
+
 class ListNode(object):
     def __init__(self, x):
         self.val = x

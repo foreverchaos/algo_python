@@ -33,6 +33,10 @@ from ctypes import *
 #         n = n/2
 #     return True
 
+"""
+输入一个整数，输出该数二进制表示中1的个数。其中负数用补码表示。
+"""
+
 
 def NumberOf1(n):
     # write code here
@@ -44,5 +48,18 @@ def NumberOf1(n):
     return cnt
 
 
+def ten_to_two(n):
+    count = 0
+    res = []
+    while n >= 1:
+        a = n % 2
+        n = n//2
+        res.insert(0, a)
+        if a == 1:
+            count += 1
+    return count
+
+
 if __name__ == '__main__':
-    print NumberOf1(10)
+    print(NumberOf1(-5))
+    print(ten_to_two(-5))

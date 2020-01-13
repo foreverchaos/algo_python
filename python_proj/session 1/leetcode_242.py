@@ -1,3 +1,12 @@
+"""
+给定两个字符串 s 和 t ，编写一个函数来判断 t 是否是 s 的字母异位词。
+
+示例 1:
+
+输入: s = "anagram", t = "nagaram"
+输出: true
+"""
+
 import string
 
 
@@ -5,9 +14,7 @@ def is_anagram(string_a, string_b):
     if len(string_a) != len(string_b):
         return False
     alpha_list = list(string.ascii_lowercase)
-    new_dict = {}
-    for alpha in alpha_list:
-        new_dict[alpha] = 0
+    new_dict = {alpha: 0 for alpha in alpha_list}
 
     for item in string_a:
         if item in new_dict.keys():

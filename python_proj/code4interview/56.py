@@ -1,3 +1,9 @@
+"""
+在一个排序的链表中，存在重复的结点，请删除该链表中重复的结点，重复的结点不保留，返回链表头指针。
+例如，链表1->2->3->3->4->4->5 处理后为 1->2->5
+"""
+
+
 class ListNode:
     def __init__(self, x):
         self.val = x
@@ -38,7 +44,6 @@ if __name__ == '__main__':
     node7 = ListNode(5)
     node8 = ListNode(5)
 
-
     node1.next = node2
     node2.next = node3
     node3.next = node4
@@ -46,4 +51,4 @@ if __name__ == '__main__':
     node5.next = node6
     node6.next = node7
     node7.next = node8
-    print delete_duplication(node1)
+    print(delete_duplication(node1))
