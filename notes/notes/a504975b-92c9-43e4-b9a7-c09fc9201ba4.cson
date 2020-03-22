@@ -1,0 +1,1605 @@
+createdAt: "2020-01-14T08:43:53.308Z"
+updatedAt: "2020-01-14T08:44:27.587Z"
+type: "SNIPPET_NOTE"
+folder: "c75bf4e7ed3c2027bb4a"
+title: "theatre/util"
+tags: []
+description: "theatre/util"
+snippets: [
+  {
+    linesHighlighted: []
+    name: "monitorlog"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      """
+      Meta
+      ====
+          $Id$
+          $DateTime$
+          $Author$
+          $Change$
+      """
+      from __future__ import unicode_literals
+      
+      import httplib
+      import json
+      import logging
+      import ssl
+      import urllib
+      import urlparse
+      from base64 import b64encode
+      
+      import os
+      import tarfile
+      import tempfile
+      import zipfile
+      import gzip
+      import binascii
+      import pytest
+      import requests
+      import rip
+      from polling import poll_for_condition
+      from sys import platform as _platform
+      from requests.auth import HTTPDigestAuth
+      
+      try:
+          # The python standard library can be built without bz2 so we make bz2
+          # usage optional.
+          import bz2
+      except ImportError:
+          bz2 = None
+      
+      INDEX_WAIT = 120
+      
+      
+      class PathNotFoundError(IOError):
+          """
+          Throw this error when the path you looking for is not found.
+          """
+          pass
+      
+      
+      class FileNotFound(IOError):
+          """
+          Throw this error when file you looking for is not found.
+          """
+          pass
+      
+      
+      class HECRequestException(Exception):
+          """
+          Throw this exception when HEC request failed.
+          """
+          pass
+      
+      
+      def normalize_to_str(obj):
+          """
+          Utility to help normalize all objects and string
+          to ascii representation.
+      
+          if unicode string -> ascii string
+          if ascii string -> ascii string
+          if object -> object.__str__()
+      
+          @type obj: object
+          @param obj: strings or objects
+      
+          @rtype: ascii string
+          @return: ascii representation of the object passed in.
+          """
+          if isinstance(obj, str):
+              return obj
+          elif isinstance(obj, unicode):
+              return str(obj.encode('utf8'))
+          else:
+              return str(obj)
+      
+      
+      def is_abs_path(path_value):
+          """
+          Workaround for INFRA-15819
+      
+          Check whether this is a abs path or not
+          Below values are treated as abs path
+              /opt/splunk
+              C:\\opt\\splunk
+      
+          :param path_value: the path value
+          :type path_value: str
+      
+          :rtype: bool
+          """
+          return (os.path.isabs(path_value) or (
+                      len(path_value) > 2 and path_value[1] == ':'))
+      
+      
+      class IndexLog(object):
+          """
+          Base class to index a log file.
+      
+          """
+      
+          def __init__(
+                  self, logfile_name, logfile_dir, sourcetype, event_count, index,
+                  source, username, password, mgmt_url, index_wait=INDEX_WAIT,
+                  path_util=os.path, rest_settings=None):
+              """
+              @type logfile_name: string
+              @param logfile_name: name of the log file
+      
+              @type logfile_dir: string
+              @param logfile_dir: dir of the log file
+      
+              @type sourcetype: string
+              @param sourcetype: name of sourcetype for the log file
+      
+              @type event_count: int
+              @param event_count: number of events in the log file.
+      
+              @type index: string
+              @param index: name of the index for the log file
+      
+              @type source: string
+              @param source: name of the source for the log file
+      
+              @type username: string
+              @param username: the splunk username
+      
+              @type password: string
+              @param password: the splunk password
+      
+              @type mgmt_url: string
+              @param mgmt_url: the splunk managment url
+      
+              @type path_util: object
+              @param path_util: the file path util
+      
+              @type index_wait: int
+              @param index_wait: max number of seconds to wait for
+                                 the data to be indexed
+      
+              @type rest_settings: dict
+              @param rest_settings: rest settings
+              """
+              # for tests/web/webdriver tests. there are params that will
+              # set this up. ideally this should not be here.
+      
+              if ('config' in pytest.__dict__ and
+                      'install_forwarder' in pytest.config.__dict__ and
+                      pytest.config.install_forwarder):
+      
+                  if ('config' in pytest.__dict__
+                          and 'forwarder_username' in pytest.config.__dict__):
+                      pytest_username = pytest.config.forwarder_username
+                  else:
+                      pytest_username = None
+      
+                  if ('config' in pytest.__dict__
+                          and 'forwarder_password' in pytest.config.__dict__):
+                      pytest_password = pytest.config.forwarder_password
+                  else:
+                      pytest_password = None
+      
+              else:
+      
+                  if ('config' in pytest.__dict__
+                          and 'admin_username' in pytest.config.__dict__):
+                      pytest_username = pytest.config.admin_username
+                  else:
+                      pytest_username = None
+      
+                  if ('config' in pytest.__dict__
+                          and 'admin_password' in pytest.config.__dict__):
+                      pytest_password = pytest.config.admin_password
+                  else:
+                      pytest_password = None
+      
+              # set the management url regardless of forwarder or not.
+              if ('config' in pytest.__dict__
+                      and 'mgmt_url' in pytest.config.__dict__):
+                  pytest_mgmt_url = pytest.config.mgmt_url
+              else:
+                  pytest_mgmt_url = None
+      
+              username = username or pytest_username or 'admin'
+              password = password or pytest_password or 'changeme'
+              mgmt_url = mgmt_url or pytest_mgmt_url
+      
+              self.logger = logging.getLogger(self.__class__.__name__)
+              self.logfile_name = logfile_name
+              self.logfile_dir = logfile_dir
+              self.sourcetype = sourcetype
+              self.event_count = event_count
+              self.index = index
+              self.source = source
+              self.username = username
+              self.password = password
+              self.mgmt_url = mgmt_url
+              self.index_wait = index_wait
+      
+              if rest_settings is None:
+                  self.rest_settings = {}
+              else:
+                  self.rest_settings = rest_settings
+      
+              if ('config' in pytest.__dict__
+                      and hasattr(pytest.config, 'saml_okta')
+                      and pytest.config.saml_okta
+                      and 'admin_username' in pytest.config.__dict__
+                      and 'admin_password' in pytest.config.__dict__):
+                  conn = rip.RESTConnectorReplacement(
+                      username=pytest.config.admin_username,
+                      password=pytest.config.admin_password,
+                      app='search', uri_base=self.mgmt_url)
+              else:
+                  conn = rip.RESTConnectorReplacement(
+                      username=self.username, password=self.password,
+                      app='search', uri_base=self.mgmt_url)
+      
+              self.rest = rip.RESTInPeace(conn)
+      
+              # by default fwd rest and reciever rest is the same
+              self.fwd_rest = self.rest
+              if ('config' in pytest.__dict__ and
+                      'install_forwarder' in pytest.config.__dict__ and
+                      pytest.config.install_forwarder and
+                      'forwarder_username' in pytest.config.__dict__ and
+                      'forwarder_password' in pytest.config.__dict__):
+                  conn = rip.RESTConnectorReplacement(
+                      username=pytest.config.forwarder_username,
+                      password=pytest.config.forwarder_password,
+                      app='search', uri_base=self.mgmt_url)
+                  self.fwd_rest = rip.RESTInPeace(conn)
+      
+              full_path = os.path.join(self.logfile_dir, self.logfile_name)
+              if is_abs_path(full_path):
+                  self.log_path = full_path
+              else:
+                  self.log_path = path_util.abspath(full_path)
+      
+              self.logger.info(
+                  normalize_to_str("Log path: {lp}".format(lp=self.log_path)))
+      
+              src = (self.source.replace('\\\\', '\\\\\\\\')
+                     if _platform == 'win32' else self.source)
+              self.search_string = (
+                  'index="{idx}" source="{src}" sourcetype="{srctype}"'.format(
+                      idx=self.index, src=src, srctype=self.sourcetype))
+      
+          def search_string_with_timerange(self, earliest=0, latest='now'):
+              """
+              To provide a method that can specify the time range in log file level
+              via log_file.search_string_with_timerange(), instead of modifying the
+              search cmd string or uri params in each case params.
+      
+              :param earliest: set the earliest time , default is 0 means that starts
+                               from earliest event date of log but not the from the
+                               start of UTC epoch time.
+              :param latest: set the latest time , default is now which used together
+                             with earliest = 0 to set 'All time' timerange.
+              :return: Return the search string
+              """
+              time_search_string = "{s} earliest={e} latest={l}".format(
+                  s=self.search_string, e=earliest, l=latest)
+              return time_search_string
+      
+          def set_rest_setting(self, endpoint, params, remote_rest=None):
+              """
+              Checks if a rest endpoint exist, if not creates it.  Otherwise just
+              updates the endpoints parameters.
+              """
+              rest = remote_rest or self.rest
+              name = params.pop('name')
+              check_endpoint = getattr(rest, 'check_{}'.format(endpoint))
+              create_endpoint = getattr(rest, 'create_{}'.format(endpoint))
+              edit_endpoint = getattr(rest, 'edit_{}'.format(endpoint))
+              wait_for_endpoint_to_be_created = getattr(
+                  rest, 'wait_for_{}_to_be_created'.format(endpoint))
+      
+              if not check_endpoint(name):
+                  create_endpoint(name=name, **params)
+                  wait_for_endpoint_to_be_created(name)
+              else:
+                  edit_endpoint(name, **params)
+      
+              if check_endpoint(name) and endpoint == 'cloud_index':
+                  self.validate_cloud_indexers(rest, name)
+      
+          def validate_cloud_indexers(self, rest, name):
+              """
+              To validate if all indexers have replicated the index from cluster
+              master. In this case we get all the indexers present in indexer cluster
+              and poll till each indexer has received index
+              """
+              self.logger.info("Verifying status of index created in indexers")
+              cluster_config = json.loads(
+                  rest.get_all_cluster_config(output_mode='json')[1])
+              if 'entry' in cluster_config:
+                  master_uri = (cluster_config[
+                                'entry'][0]['content']['master_uri'])
+                  conn = rip.RESTConnectorReplacement(
+                      username=pytest.config.admin_username,
+                      password=pytest.config.admin_password, app='search',
+                      uri_base=master_uri)
+                  master_rest = rip.RESTInPeace(conn)
+      
+                  # Now need to wait till cluster master exits maintenance mode
+                  def not_in_maintenance_mode():
+                      """
+                      Check if the cluster master is in maintenance mode if yes
+                      then wait or continue polling
+                      """
+                      info_content = json.loads(
+                          master_rest.get_cluster_master(
+                              id_name='info',
+                              output_mode='json')[1])['entry'][0]['content']
+                      self.logger.info("Cluster master info: {}".format(
+                          info_content))
+                      return (not info_content['maintenance_mode'] and
+                              not info_content['rolling_restart_flag'] and
+                              info_content['indexing_ready_flag'])
+      
+                  poll_for_condition(not_in_maintenance_mode)
+      
+                  # Once out of maintenance mode then we can check if each index is
+                  # searchable
+      
+                  def is_index_searchable():
+                      """
+                      Check if each peer's status is now searchable.
+      
+                      @rtype: boolean
+                      @rparam: Status of the peer is searchable.
+                      """
+                      peers = json.loads(
+                          master_rest.get_cluster_master(
+                              id_name='peers', output_mode='json')[1])
+      
+                      for peer in peers['entry']:
+                          self.logger.info("Peer info: {}".format(peer))
+                          if(peer['content']['status'] != 'Up' or
+                                  not peer['content']['is_searchable']):
+                              return False
+                      return True
+      
+                  poll_for_condition(is_index_searchable)
+      
+          def setup(self):
+              """
+              Setup needed to perform for sending data.
+              """
+              pass
+      
+          def index_log(self):
+              """
+              Method to send data and perform indexing on that data.
+              """
+              pass
+      
+          def teardown(self):
+              """
+              Teardown the setup for indexing log
+              """
+              pass
+      
+          def get_current_event_count(
+                  self, rest=None, poll_frequency=0.5, timeout=30):
+              """
+              Gets current event count during log indexing in order to wait for the
+              expected event count.
+      
+              :type rest: RESTInPeace
+              :param rest: the rest connection, using self.rest if not specified
+      
+              :type poll_frequency: number
+              :param poll_frequency: frequency for checking the search job status
+      
+              :type timeout: int
+              :param timeout: timeout to get current event count
+      
+              :rtype int
+              :return current event count
+              """
+              rest = rest or self.rest
+      
+              src = (self.source.replace('\\\\', '\\\\\\\\')
+                     if _platform == 'win32' else self.source)
+              search_string = (
+                  '| metadata type=sources index="{i}" | search source="{l}" '
+                  '| appendcols [search index="{i}" source="{l}" | head 1 '
+                  '| stats count as hasSearchableEvent]'.format(i=self.index, l=src))
+      
+              _, cont = rest.create_job(
+                  search=search_string, output_mode='json')
+              sid = json.loads(cont)[u'sid']
+      
+              def wait_for_job_done():
+                  """
+                  Wait for job to be done
+                  """
+                  job = json.loads(rest.get_job(sid, output_mode='json')[1])
+                  return job['entry'][0]['content']['dispatchState'] == 'DONE'
+      
+              poll_for_condition(
+                  wait_for_job_done,
+                  frequency=poll_frequency, timeout=timeout,
+                  error_message="Timeout during getting event count of "
+                                "{log}".format(log=self.log_path))
+      
+              _, job_cont = rest.get_job(
+                  sid, sub_endpoint='results', output_mode='json')
+              results = json.loads(job_cont)['results']
+      
+              if bool(results):
+                  total_count = int(json.loads(job_cont)['results'][0].get(
+                      'totalCount', 0))
+                  has_searchable_event = int(json.loads(job_cont)['results'][0].get(
+                      'hasSearchableEvent', 0))
+                  if has_searchable_event:
+                      return total_count
+                  else:
+                      return 0
+      
+          def wait_for_event_count(self, rest=None, poll_frequency=0.5):
+              """
+              Wait for the expected event count
+      
+              :type rest: RESTInPeace
+              :param rest: the rest connection, using the self one if not specified
+      
+              :type poll_frequency: number
+              :param poll_frequency: frequency for checking
+              """
+              rest = rest or self.rest
+      
+              # polling wait to let the log be fully indexed
+              poll_for_condition(
+                  lambda: self.event_count <= self.get_current_event_count(rest),
+                  frequency=poll_frequency, timeout=self.index_wait,
+                  error_message='After {s} seconds, the file {f} is not completely '
+                                'indexed.'.format(
+                      s=self.index_wait, f=self.log_path))
+      
+              self.logger.info(
+                  normalize_to_str('Log file {f} is completely indexed.'.format(
+                      f=self.log_path)))
+      
+      
+      class HttpInput(object):
+      
+          def __init__(self, host, port, token=None,
+                       channel=None, ack=False, ssl=False):
+      
+              self._host = host
+              self._port = port
+              self._token = token
+              self._is_ssl = ssl
+              self._build_url()
+              self._build_url_raw()
+              self._build_url_ack()
+              self._header = {}
+              channel = channel or self._token
+      
+              if token:
+                  self._header = {
+                      'Authorization': 'Splunk {t}'.format(t=self._token)}
+              if ack:
+                  self._header['x-splunk-request-channel'] = channel
+      
+          def _build_url(self):
+              self._url = "http{}://{}:{}/services/collector/event".format(
+                  's' if self._is_ssl else '', self._host, self._port)
+      
+          def _build_url_raw(self):
+              self._url_raw = "http{}://{}:{}/services/collector/raw".format(
+                  's' if self._is_ssl else '', self._host, self._port)
+      
+          def _build_url_ack(self):
+              self._url_ack = "http{}://{}:{}/services/collector/ack".format(
+                  's' if self._is_ssl else '', self._host, self._port)
+      
+          def query_event_ack_status(self, ack_ids, username=None,
+                                     password=None, verify=True):
+              """
+              Query event ack status
+      
+              :type ack_ids: str
+              :param ack_ids: ack ids
+      
+              :type username: str
+              :param username: splunk username
+      
+              :param password: str
+              :param password: splunk password
+      
+              :type verify: bool
+              :param verify: if need verify response status code
+      
+              :return: the response item
+              :rtype: requests.Response
+              """
+      
+              auth = HTTPDigestAuth(username, password) if username else None
+              response = requests.post(
+                  self._url_ack, headers=self._header,
+                  data=ack_ids, verify=False, auth=auth)
+              if verify:
+                  if not response.ok:
+                      raise HECRequestException(
+                          'Failed to query event ack status via HTTP Input. \\n'
+                          'status code:{status_code} \\n'
+                          'response content: {cont}'.format(
+                              status_code=response.status_code,
+                              cont=response.content))
+              return response
+      
+          def send(self, payload, raw=False, host=None, index=None, source=None,
+                   sourcetype=None, time=None, fields=None, verify=True):
+              """
+              send data using HEC
+      
+              :param payload: the payload you want to send through hec
+              :type payload: for raw=True, this is an object that will be
+                             normalized to ascii str
+                             for raw=False, this is an object that will be
+                             json dumped
+      
+              :param raw: True means send using hec raw, False means send using event
+              :type raw: bool
+      
+              :param host: host name
+              :type host: str
+      
+              :param index: index name
+              :type index: str
+      
+              :param source: user defined event source
+              :type source: str
+      
+              :param sourcetype: user defined event sourcetype
+              :type sourcetype: str
+      
+              :param time: epoch-formatted time
+              :type time: str or unsigned integer
+      
+              :param fields: for raw=False only, fields for indexing that do not
+                             occur in the event payload itself
+              :type fields: dict
+      
+              :type verify: bool
+              :param verify: if need verify response status code
+      
+              :return: the response item
+              :rtype: requests.Response
+              """
+              params = {}
+              if raw:
+                  url = self._url_raw
+                  data = normalize_to_str(payload)
+              else:
+                  url = self._url
+                  data_dict = {'event': payload}
+                  if fields is not None:
+                      data_dict['fields'] = fields
+                  data = json.dumps(data_dict)
+      
+              if host is not None:
+                  params['host'] = host
+              if index is not None:
+                  params['index'] = index
+              if source is not None:
+                  params['source'] = source
+              if sourcetype is not None:
+                  params['sourcetype'] = sourcetype
+              if time is not None:
+                  params['time'] = time
+      
+              response = requests.post(
+                  url, headers=self._header, data=data, verify=False, params=params)
+              if verify:
+                  if not response.ok:
+                      raise HECRequestException(
+                          'Failed to send data via HTTP Input. \\n'
+                          'status code:{status_code} \\n'
+                          'response content: {cont}'.format(
+                              status_code=response.status_code,
+                              cont=response.content))
+              return response
+      
+      
+      class HttpInputLog(IndexLog):
+          """
+          Class to index a log file via HTTP Input.
+      
+          """
+      
+          def __init__(
+                  self, logfile_name, logfile_dir, sourcetype, event_count, index,
+                  username, password, mgmt_url):
+              """
+              Initializes some class variables, that could be referenced later.
+      
+              @type logfile_name: string
+              @param logfile_name: name of the log file
+      
+              @type logfile_dir: string
+              @param logfile_dir: dir of the log file
+      
+              @type sourcetype: string
+              @param sourcetype: name of sourcetype for the log file
+      
+              @type event_count: int
+              @param event_count: number of events in the log file.
+      
+              @type index: string
+              @param index: name of the index for the log file
+      
+              @type username: string
+              @param username: username of the admin user to make rest conn
+      
+              @type password: string
+              @param password: password of the admin user to make rest conn
+      
+              @type mgmt_url: string
+              @param mgmt_url: the splunkd managment url
+      
+              """
+      
+              self.token_name = '{s}_http_input'.format(s=sourcetype)
+              source = 'http:{s}'.format(s=self.token_name)
+      
+              super(HttpInputLog, self).__init__(
+                  logfile_name, logfile_dir, sourcetype, event_count, index,
+                  source, username, password, mgmt_url)
+      
+              self.host = mgmt_url.split(':')[1].strip('//')
+              self.port = 8088
+      
+              self.logger = logging.getLogger(self.__class__.__name__)
+      
+          def setup(self):
+              self.rest.edit_http_input(
+                  'http', enableSSL=False, port=self.port, disabled=False,
+                  output_mode='json')
+      
+              self.rest.create_http_input(
+                  name=self.token_name, sourcetype=self.sourcetype,
+                  index=self.index, output_mode='json')
+      
+          def index_log(self):
+              http_input_json = self.rest.get_http_input(
+                  self.token_name, output_mode='json')[1]
+              token = json.loads(http_input_json)['entry'][0]['content']['token']
+              self.logger.info(
+                  normalize_to_str('index log using token: {t}'.format(t=token)))
+      
+              http_input = HttpInput(host=self.host, port=self.port, token=token)
+              with open(self.log_path) as log_file:
+                  for line in log_file.readlines():
+                      http_input.send(line)
+      
+          def teardown(self):
+              if self.rest.check_http_input(self.token_name):
+                  self.rest.delete_http_input(self.token_name)
+      
+      
+      class OneshotInputLog(IndexLog):
+          """
+          Class to index once a log file for testing.
+          """
+          def __init__(
+                  self, logfile_name, sourcetype, event_count, times=1, index='main',
+                  logfile_dir=None, username=None, password=None, mgmt_url=None,
+                  path_util=os.path, index_wait=INDEX_WAIT, rest_settings=None,
+                  source=None):
+              """
+              Initializes some class variables, that could be referenced later.
+      
+              :type logfile_name: string
+              :param logfile_name: name of the log file
+      
+              :type sourcetype: string
+              :param sourcetype: name of sourcetype for the log file
+      
+              :type event_count: int
+              :param event_count: number of events in the log file.
+      
+              :type times: int
+              :param times: how many times of oneshot will be done
+      
+              :type index: string
+              :param index: name of the index for the log file
+      
+              :type logfile_dir: string
+              :param logfile_dir: dir of the log file
+      
+              :type username: string
+              :param username: username of the admin user to make rest conn
+      
+              :type password: string
+              :param password: password of the admin user to make rest conn
+      
+              :type mgmt_url: string
+              :param mgmt_url: the splunkd managment url
+      
+              :type path_util: object
+              :param path_util: the file path util
+      
+              :type index_wait: int
+              :param index_wait: max number of seconds to wait for
+                                 the data to be indexed
+      
+              @type rest_settings: dict
+              @param rest_settings: rest settings
+      
+              """
+              if logfile_dir is None:
+                  if pytest.config.option.data_dir is not None:
+                      logfile_dir = pytest.config.option.data_dir
+                  else:
+                      raise PathNotFoundError("Data directory not specified.")
+      
+              full_path = os.path.join(logfile_dir, logfile_name)
+              if is_abs_path(full_path):
+                  log_path = full_path
+              else:
+                  log_path = path_util.abspath(full_path)
+      
+              if not path_util.exists(log_path):
+                  raise FileNotFound(
+                      "Could not locate the file '{}'.".format(log_path))
+      
+              if source is None:
+                  source = log_path
+      
+              super(OneshotInputLog, self).__init__(
+                  logfile_name=logfile_name, sourcetype=sourcetype,
+                  event_count=event_count * times, index=index,
+                  logfile_dir=logfile_dir, username=username, password=password,
+                  source=source, mgmt_url=mgmt_url, path_util=path_util,
+                  index_wait=index_wait, rest_settings=rest_settings)
+              self.times = times
+      
+          def index_log(self, rest=None):
+              # TODO remove rest param,  currently only used by
+              # theatre/puppets/indexer.py: log_object.index_log(self.nobody_rest)
+              rest = rest or self.rest
+              self.logger.info(normalize_to_str(
+                  "Editing indexer rest settings: {}".format(self.rest_settings)))
+              try:
+                  for endpoint, params in self.rest_settings.iteritems():
+                      self.set_rest_setting(endpoint, params, rest)
+              except Exception as err:
+                  self.logger.warn(normalize_to_str(
+                      "Failed to setup the index for the log file. "
+                      "Tests may possibly fail. {e}".format(e=err)))
+      
+              for _ in range(self.times):
+                  rest.create_input_oneshot(
+                      output_mode='json', name=self.log_path,
+                      index=self.index, sourcetype=self.sourcetype,
+                      **{'rename-source': self.source})
+      
+      
+      class MonitorInputLog(IndexLog):
+          """
+          Class to use for monitoring a log file for testing.
+      
+          """
+          def __init__(
+                  self, logfile_name, sourcetype, event_count, index='main',
+                  logfile_dir=None, username=None, password=None, mgmt_url=None,
+                  path_util=os.path, index_wait=INDEX_WAIT, rest_settings=None):
+      
+              """
+              Initializes some class variables, that could be referenced later.
+      
+              @type logfile_name: string
+              @param logfile_name: name of the log file
+      
+              @type sourcetype: string
+              @param sourcetype: name of sourcetype for the log file
+      
+              @type event_count: int
+              @param event_count: number of events in the log file.
+      
+              @type index: string
+              @param index: name of the index for the log file
+      
+              @type logfile_dir: string
+              @param logfile_dir: dir of the log file
+      
+              @type username: string
+              @param username: username of the admin user to make rest conn
+      
+              @type password: string
+              @param password: password of the admin user to make rest conn
+      
+              @type mgmt_url: string
+              @param mgmt_url: the splunkd managment url
+      
+              @type path_util: object
+              @param path_util: the file path util
+      
+              @type index_wait: int
+              @param index_wait: max number of seconds to wait for
+                                 the data to be indexed
+      
+              @type rest_settings: dict
+              @param rest_settings: rest settings
+      
+              """
+              if logfile_dir is None:
+                  # attempt to look at relative src path.
+                  if pytest.config.option.data_dir is not None:
+                      logfile_dir = pytest.config.option.data_dir
+                  else:
+                      raise PathNotFoundError("Data directory not specified.")
+      
+              full_path = os.path.join(logfile_dir, logfile_name)
+              if is_abs_path(full_path):
+                  log_path = full_path
+              else:
+                  log_path = path_util.abspath(full_path)
+      
+              super(MonitorInputLog, self).__init__(
+                  logfile_name=logfile_name, sourcetype=sourcetype,
+                  event_count=event_count, index=index,
+                  logfile_dir=logfile_dir, username=username, password=password,
+                  source=log_path, mgmt_url=mgmt_url, path_util=path_util,
+                  index_wait=index_wait, rest_settings=rest_settings)
+      
+              self.logger = logging.getLogger(self.__class__.__name__)
+      
+          def index_log(self, fwd_rest=None, idx_rest=None):
+              """
+              Setting up forwarder to index data to the indexer provided
+      
+              @type fwd_rest RESTInPeace
+              @param fwd_rest the rest connection, using the self if not specified
+      
+              @type idx_rest RESTInPeace
+              @param idx_rest the rest connection, using the self if not specified
+      
+              """
+              fwd_rest = fwd_rest or self.fwd_rest
+              idx_rest = idx_rest or self.rest
+              self.logger.info(normalize_to_str(
+                  "Editing indexer rest settings: {}".format(self.rest_settings)))
+              try:
+                  for endpoint, params in self.rest_settings.iteritems():
+                      self.set_rest_setting(endpoint, params, idx_rest)
+                  self.logger.info(normalize_to_str(
+                      "Monitoring the file: {f}".format(f=self.log_path)))
+                  fwd_rest.create_input_monitor(
+                      name=self.log_path, sourcetype=self.sourcetype,
+                      index=self.index)
+                  self.logger.info(
+                      "Index log {l} on index {i} with sourcetype {s}".format(
+                          l=self.log_path, i=self.index, s=self.sourcetype))
+                  fwd_rest.wait_for_input_monitor_to_be_created(self.log_path)
+      
+              except Exception as err:
+                  self.logger.warn(normalize_to_str(
+                      "Failed to setup the index for the log file. "
+                      "Tests may possibly fail. {e}".format(e=err)))
+      
+          def teardown(self):
+              self.logger.info(normalize_to_str('Delete input monitor if necessary'))
+              if self.rest.check_input_monitor(self.log_path):
+                  self.rest.delete_input_monitor(self.log_path)
+                  self.rest.wait_for_input_monitor_to_be_deleted(self.log_path)
+      
+      
+      class ForwarderInputLog(IndexLog):
+          """
+          Class to use local splunk to monitor log and forward data to remote server.
+          It will be deprecated in later. Use ForwardingInputLog instead.
+          """
+      
+          def __init__(
+                  self, logfile_name, sourcetype, event_count, index,
+                  receiver_host, receiver_port,
+                  receiver_username, receiver_password, receiver_mgmt_url,
+                  fwd_username=None, fwd_password=None, fwd_mgmt_url=None,
+                  path_util=os.path, index_wait=480, rest_settings=None,
+                  data_path=None):
+              """
+              Initializes some class variables, that could be referenced later.
+      
+              @type logfile_name: string
+              @param logfile_name: name of the log file
+      
+              @type sourcetype: string
+              @param sourcetype: name of sourcetype for the log file
+      
+              @type event_count: int
+              @param event_count: number of events in the log file.
+      
+              @type index: string
+              @param index: name of the index for the log file
+      
+              @type receiver_host: string
+              @param receiver_host: hostname of the receiver
+      
+              @type receiver_port: string
+              @param receiver_port: port number of receiveiver ready to receive
+      
+              @type receiver_username: string
+              @param receiver_username: username of the receiver to make rest conn
+      
+              @type receiver_password: string
+              @param receiver_password: password of the receiver to make rest conn
+      
+              @type receiver_mgmt_url: string
+              @param receiver_mgmt_url: splunkd url of receiver
+      
+              @type fwd_username: string
+              @param fwd_username: username of the forwarder to make rest conn
+      
+              @type fwd_password: string
+              @param fwd_password: password of the forwarder to make rest conn
+      
+              @type fwd_mgmt_url: string
+              @param fwd_mgmt_url: the forwarder managment url
+      
+              @type index_wait: int
+              @param index_wait: max number of seconds to wait for
+                                 the data to be indexed
+      
+              @type rest_settings: dict
+              @param rest_settings: rest settings
+      
+              """
+      
+              self.monitor_input_log = MonitorInputLog(
+                  logfile_name=logfile_name, sourcetype=sourcetype,
+                  event_count=event_count, index=index, logfile_dir=data_path,
+                  username=fwd_username, password=fwd_password,
+                  mgmt_url=fwd_mgmt_url, path_util=path_util,
+                  index_wait=index_wait, rest_settings=rest_settings)
+      
+              super(ForwarderInputLog, self).__init__(
+                  logfile_name=logfile_name, sourcetype=sourcetype,
+                  event_count=event_count, index=index,
+                  logfile_dir=self.monitor_input_log.logfile_dir,
+                  username=self.monitor_input_log.username,
+                  password=self.monitor_input_log.password,
+                  source=self.monitor_input_log.log_path,
+                  mgmt_url=self.monitor_input_log.mgmt_url,
+                  index_wait=index_wait, rest_settings=rest_settings)
+      
+              self.tcp_input_name = str(receiver_port)
+              self.tcp_output_server = '{h}:{p}'.format(
+                  h=receiver_host, p=receiver_port)
+      
+              receiver_conn = rip.RESTConnectorReplacement(
+                  username=receiver_username, password=receiver_password,
+                  app='search', uri_base=receiver_mgmt_url)
+              self.receiver_rest = rip.RESTInPeace(receiver_conn)
+              self.sourcetype_name = sourcetype
+              self.logger = logging.getLogger(self.__class__.__name__)
+      
+          def setup(self):
+              """
+              Sets up input monitor on the indexer side and output monitor on
+              forwarder side
+              """
+              self.monitor_input_log.setup()
+              self.receiver_rest.create_input_tcp_cooked(
+                  name=self.tcp_input_name)
+              self.receiver_rest.wait_for_input_tcp_cooked_to_be_created(
+                  self.tcp_input_name)
+      
+              self.fwd_rest.create_tcp_output_server(name=self.tcp_output_server)
+              self.fwd_rest.wait_for_tcp_output_server_to_be_created(
+                  self.tcp_output_server)
+      
+          def index_log(self):
+              """
+              Override the index_log function of super to pass in forwarder and
+              receiver's rest object to monitor data.
+              """
+              self.monitor_input_log.index_log(
+                  fwd_rest=self.fwd_rest, idx_rest=self.receiver_rest)
+      
+          def wait_for_event_count(self):
+              """
+              Override the super method to wait for event count at receiver/indexer
+              end
+              """
+              self.monitor_input_log.wait_for_event_count(self.receiver_rest)
+      
+          def get_current_event_count(self):
+              """
+              Override the super method to get count of log indexed.
+      
+              :return:
+              """
+              return self.monitor_input_log.get_current_event_count(
+                  self.receiver_rest)
+      
+          def teardown(self):
+              """
+              Delete the setup done at forwarder and receiver side
+      
+              On forwarder side, delete the tcp_output_server
+              On receiver side, delete the tcp_input server
+              """
+              try:
+                  if (hasattr(pytest.config, 'instance_type')
+                          and pytest.config.instance_type != 'cloud'):
+                      self.logger.info(
+                          normalize_to_str('Delete tcp output server if necessary'))
+                      if self.fwd_rest.check_tcp_output_server(
+                              self.tcp_output_server):
+                          self.fwd_rest.delete_tcp_output_server(
+                              self.tcp_output_server)
+                          self.fwd_rest.wait_for_tcp_output_server_to_be_deleted(
+                              self.tcp_output_server)
+      
+                      self.logger.info(
+                          normalize_to_str('Delete tcp input if necessary'))
+                      if self.receiver_rest.check_input_tcp_cooked(
+                              self.tcp_input_name):
+                          self.receiver_rest.delete_input_tcp_cooked(
+                              self.tcp_input_name)
+                          self.receiver_rest.wait_for_input_tcp_cooked_to_be_deleted(
+                              self.tcp_input_name)
+              finally:
+                  self.monitor_input_log.teardown()
+      
+          def monitor(self):
+              """
+              Method for sending and indexing the log file.
+              """
+              if pytest.config.instance_type != 'cloud':
+                  self.setup()
+              self.index_log()
+              self.wait_for_event_count()
+      
+          def remove_monitor(self):
+              """
+              Remove the monitor
+              """
+              self.teardown()
+      
+      
+      class MonitorLog(MonitorInputLog):
+      
+          """
+          Class to use for monitoring a log file for testing.
+          For backwards compatibility
+          """
+      
+          def __init__(
+                  self,
+                  name,
+                  srctype,
+                  evtcnt,
+                  index='main',
+                  data_path=None,
+                  username=None,
+                  password=None,
+                  index_wait=INDEX_WAIT,
+                  rest_settings=None):
+              """
+              Initializes some class variables, that could be referenced later.
+      
+              @type name: string
+              @param name: name of the log file
+      
+              @type srctype: string
+              @param srctype: name of sourcetype for the log file
+      
+              @type evtcnt: int
+              @param evtcnt: number of events in the log file.
+      
+              @type index: string
+              @param index: name of the index for the log file
+      
+              @type data_path: string
+              @param data_path: name of the log file
+      
+              @type mgmt_url: string
+              @param mgmt_url: the splunk managment url
+      
+              @type path_util: object
+              @param path_util: the file path util
+      
+              @type index_wait: int
+              @param index_wait: max number of seconds to wait for
+                                 the data to be indexed
+      
+              @type rest_settings: dict
+              @param rest_settings: rest settings
+      
+              """
+              super(MonitorLog, self).__init__(
+                  logfile_name=name, sourcetype=srctype,
+                  event_count=evtcnt, index=index,
+                  logfile_dir=data_path, username=username, password=password,
+                  index_wait=index_wait, rest_settings=rest_settings)
+      
+              self.sourcetype_name = srctype
+              self.logger = logging.getLogger(self.__class__.__name__)
+      
+          def monitor(self):
+              self.index_log()
+              self.wait_for_event_count()
+      
+          def remove_monitor(self):
+              """
+              Remove the monitor
+              """
+              self.teardown()
+      
+      
+      class StreamingInputLog(IndexLog):
+          """
+          Class to use for uploading a log file for testing.
+          """
+      
+          def __init__(
+                  self, logfile_name, sourcetype, event_count, index='main',
+                  logfile_dir=None, username=None, password=None, mgmt_url=None,
+                  path_util=os.path, index_wait=INDEX_WAIT, rest_settings=None):
+              """
+              StreamingInputLog Init
+      
+              :type logfile_name: string
+              :param logfile_name: name of the log file
+      
+              :type sourcetype: string
+              :param sourcetype: name of sourcetype for the log file
+      
+              :type event_count: int
+              :param event_count: number of events in the log file.
+      
+              :type index: string
+              :param index: name of the index for the log file
+      
+              :type logfile_dir: string
+              :param logfile_dir: dir of the log file
+      
+              :type username: string
+              :param username: splunk username
+      
+              :type password: string
+              :param password: splunk password
+      
+              :type mgmt_url: string
+              :param mgmt_url: the splunk management url
+      
+              :type path_util: object
+              :param path_util: the file path util
+      
+              :type index_wait: int
+              :param index_wait: max number of seconds to wait for
+                                 the data to be indexed
+      
+              :type rest_settings: dict
+              :param rest_settings: rest settings
+              """
+      
+              if logfile_dir is None:
+                  # attempt to look at relative src path.
+                  if pytest.config.option.data_dir is not None:
+                      logfile_dir = pytest.config.option.data_dir
+                  else:
+                      raise PathNotFoundError("Data directory not specified.")
+      
+              # prevent splunk handling the compressed file using build-in logic
+              full_path = os.path.join(logfile_dir, logfile_name)
+              if is_abs_path(full_path):
+                  log_path = full_path
+              else:
+                  log_path = path_util.abspath(full_path)
+      
+              if (tarfile.is_tarfile(log_path) or zipfile.is_zipfile(log_path) or
+                      self.is_gz_file(log_path) or
+                      (bz2 is not None and self.is_bz2_file(log_path))):
+                  log_path += ".extracted"
+      
+              super(StreamingInputLog, self).__init__(
+                  logfile_name=logfile_name, sourcetype=sourcetype,
+                  event_count=event_count, index=index,
+                  logfile_dir=logfile_dir, username=username, password=password,
+                  source=log_path, mgmt_url=mgmt_url,
+                  path_util=path_util,
+                  index_wait=index_wait, rest_settings=rest_settings)
+              # for legacy test cases
+              self.sourcetype_name = sourcetype
+      
+          @staticmethod
+          def is_gz_file(name):
+              """
+              judge file type whether is gz with given file name
+              :param name: the file name
+              :type name: string
+              :rtype: bool
+              :return: if it is gz file type, then return True else False
+              """
+              with open(name, 'rb') as file:
+                  return binascii.hexlify(file.read(2)) == b'1f8b'
+      
+          @staticmethod
+          def is_bz2_file(name):
+              """
+              judge file type whether is bz2 with given file name
+              :param name: the file name
+              :type name: string
+              :rtype: bool
+              :return: if it is bz2 file type, then return True else False
+              """
+              with open(name, 'rb') as file:
+                  return binascii.hexlify(file.read(2)) == b'425a'
+      
+          def index_log(self):
+              """
+              Index log by streaming
+              """
+              parsed_mgmt_url = urlparse.urlparse(self.mgmt_url)
+      
+              if hasattr(ssl, 'SSLContext'):
+                  ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+                  conn = httplib.HTTPSConnection(
+                      parsed_mgmt_url.hostname, parsed_mgmt_url.port,
+                      context=ssl_context)
+              else:
+                  conn = httplib.HTTPSConnection(
+                      parsed_mgmt_url.hostname, parsed_mgmt_url.port)
+      
+              conn.connect()
+      
+              def sent_plain_data_in_dir(dir_name):
+                  """
+                  read plain data in dir and sent data
+                  :type dir_name: string
+                  :param dir_name: the absolute path of the directory
+                  """
+                  for file_name in os.listdir(dir_name):
+                      file_path = os.path.join(dir_name, file_name)
+                      if os.path.isdir(file_path):
+                          sent_plain_data_in_dir(file_path)
+                      else:
+                          with open(file_path) as f:
+                              line = f.readline()
+                              while line:
+                                  conn.send(line)
+                                  line = f.readline()
+      
+              def send_data(name):
+                  """
+                  send data stream to splunk, supports plain text, tar file and
+                   compressed file type zip, gz and bz2
+                  :param name: the given file name
+                  :type name: string
+                  """
+                  try:
+                      if tarfile.is_tarfile(name):
+                          tempdir = tempfile.mkdtemp()
+                          with tarfile.open(name) as tf:
+                              tf.extractall(tempdir)
+                          sent_plain_data_in_dir(tempdir)
+      
+                      elif zipfile.is_zipfile(name):
+                          tempdir = tempfile.mkdtemp()
+                          with zipfile.ZipFile(name, 'r') as zip_file:
+                              zip_file.extractall(tempdir)
+                          sent_plain_data_in_dir(tempdir)
+      
+                      elif self.is_gz_file(name):
+                          with gzip.open(name, 'rb') as f:
+                              line = f.readline()
+                              while line:
+                                  conn.send(line)
+                                  line = f.readline()
+      
+                      elif bz2 is not None and self.is_bz2_file(name):
+                          with bz2.BZ2File(name, 'rb') as f:
+                              line = f.readline()
+                              while line:
+                                  conn.send(line)
+                                  line = f.readline()
+      
+                      else:
+                          with open(name) as f:
+                              line = f.readline()
+                              while line:
+                                  conn.send(line)
+                                  line = f.readline()
+                  except IOError as ex:
+                      self.logger.error('io error occurs', exc_info=True)
+                      raise ex
+      
+              try:
+                  url_args = {
+                      'index': self.index,
+                      'source': self.source,
+                      'sourcetype': self.sourcetype}
+                  url_params = urllib.urlencode(url_args)
+      
+                  stream_uri = '/services/receivers/stream?{}'.format(url_params)
+                  self.logger.info('stream_uri: {}'.format(stream_uri))
+                  conn.putrequest('POST', stream_uri)
+      
+                  auth = '{u}:{p}'.format(u=self.username, p=self.password)
+                  self.logger.info('stream_auth: {}'.format(auth))
+                  conn.putheader('Authorization', 'Basic {}'.format(b64encode(auth)))
+                  conn.putheader('x-splunk-input-mode', 'streaming')
+                  conn.endheaders()
+      
+                  send_data(self.log_path)
+              finally:
+                  conn.close()
+      
+      
+      class ForwardingInputLog(IndexLog):
+          """
+          use Splunk forwarder to monitor log and forward data to remote servers
+          """
+          def __init__(
+                  self, logfile_name, sourcetype, event_count, index,
+                  receiver_port, receivers,
+                  fwd_username=None, fwd_password=None, fwd_mgmt_url=None,
+                  path_util=os.path, index_wait=480, rest_settings=None,
+                  logfile_dir=None):
+              """
+              Initializes some class variables, that could be referenced later.
+      
+              :type logfile_name: string
+              :param logfile_name: name of the log file
+      
+              :type sourcetype: string
+              :param sourcetype: name of sourcetype for the log file
+      
+              :type event_count: int
+              :param event_count: number of events in the log file.
+      
+              :type index: string
+              :param index: name of the index for the log file
+      
+              :type receiver_port: int
+              :param receiver_port: port number of receiver ready to receive
+      
+              :type receivers: list of puppet
+              :param receivers: receivers of forwarding data. For example,
+              get theatre deployment stage, receivers=stage.indexers.all(), all
+              indexers in the deployment will be the receivers of forwarding data.
+      
+              :type fwd_username: string
+              :param fwd_username: username of the forwarder to make rest conn
+      
+              :type fwd_password: string
+              :param fwd_password: password of the forwarder to make rest conn
+      
+              :type fwd_mgmt_url: string
+              :param fwd_mgmt_url: the forwarder management url
+      
+              :type index_wait: int
+              :param index_wait: max number of seconds to wait for
+                                 the data to be indexed
+      
+              :type rest_settings: dict
+              :param rest_settings: rest settings
+      
+              """
+              self.logger = logging.getLogger(self.__class__.__name__)
+      
+              if logfile_dir is None:
+                  # attempt to look at relative src path.
+                  if pytest.config.option.data_dir is not None:
+                      logfile_dir = pytest.config.option.data_dir
+                  else:
+                      raise PathNotFoundError("Data directory not specified.")
+      
+              full_path = os.path.join(logfile_dir, logfile_name)
+              if is_abs_path(full_path):
+                  log_path = full_path
+              else:
+                  log_path = path_util.abspath(full_path)
+      
+              super(ForwardingInputLog, self).__init__(
+                  logfile_name=logfile_name, sourcetype=sourcetype,
+                  event_count=event_count, index=index,
+                  logfile_dir=logfile_dir,
+                  username=fwd_username,
+                  password=fwd_password,
+                  source=log_path,
+                  mgmt_url=fwd_mgmt_url,
+                  index_wait=index_wait, rest_settings=rest_settings)
+              # for legacy test cases
+              self.sourcetype_name = sourcetype
+              self.receivers = receivers
+              self.tcp_input_name = str(receiver_port)
+              self.tcp_output_group = 'search_peers_group'
+      
+          def setup(self):
+              """
+              Sets up input monitor on the indexer side and output monitor on
+              forwarder side
+              """
+              for receiver in self.receivers:
+                  with receiver.rest.namespace('nobody', 'system'):
+                      receiver.rest.create_input_tcp_cooked(
+                          name=self.tcp_input_name, output_mode='json')
+                      receiver.rest.wait_for_input_tcp_cooked_to_be_created(
+                          self.tcp_input_name)
+      
+              my_search_peers = [
+                  '{h}:{p}'.format(
+                      h=receiver.splunk.splunkd_host(),
+                      p=self.tcp_input_name) for receiver in self.receivers]
+      
+              self.fwd_rest.create_tcp_output_group(
+                  output_mode='json',
+                  **{'name': self.tcp_output_group,
+                     'servers': ','.join(my_search_peers)})
+      
+          def index_log(self):
+              """
+              Monitor data on forwarder
+              """
+              self.logger.info(normalize_to_str(
+                  "Editing indexer rest settings: {}".format(self.rest_settings)))
+              try:
+                  self.logger.info(normalize_to_str(
+                      "Monitoring the file: {f}".format(f=self.log_path)))
+                  self.fwd_rest.create_input_monitor(
+                      name=self.log_path, sourcetype=self.sourcetype,
+                      index=self.index)
+                  self.logger.info(
+                      "Index log {l} on index {i} with sourcetype {s}".format(
+                          l=self.log_path, i=self.index, s=self.sourcetype))
+                  self.fwd_rest.wait_for_input_monitor_to_be_created(self.log_path)
+      
+              except Exception as err:
+                  self.logger.warn(normalize_to_str(
+                      "Failed to setup the index for the log file. "
+                      "Tests may possibly fail. {e}".format(e=err)))
+      
+          def teardown(self):
+              """
+              Delete the setup done at forwarder and receiver side
+      
+              On forwarder side, delete the input monitor and tcp_output_server
+              On receiver side, delete the tcp_input server
+              """
+              self.logger.info(
+                  normalize_to_str('Delete input monitor if necessary'))
+              if self.fwd_rest.check_input_monitor(self.log_path):
+                  self.fwd_rest.delete_input_monitor(self.log_path)
+                  self.fwd_rest.wait_for_input_monitor_to_be_deleted(self.log_path)
+      
+              self.logger.info(
+                  normalize_to_str('Delete tcp output server if necessary'))
+      
+              if self.fwd_rest.check_tcp_output_group(
+                      self.tcp_output_group):
+                  self.fwd_rest.delete_tcp_output_group(
+                      self.tcp_output_group)
+                  self.fwd_rest.wait_for_tcp_output_group_to_be_deleted(
+                      self.tcp_output_group)
+      
+              self.logger.info(
+                  normalize_to_str('Delete tcp input if necessary'))
+              input_name = self.tcp_input_name
+              for receiver in self.receivers:
+                  with receiver.rest.namespace('nobody', 'system'):
+                      rest = receiver.rest
+                      if rest.check_input_tcp_cooked(input_name):
+                          rest.delete_input_tcp_cooked(input_name)
+                          rest.wait_for_input_tcp_cooked_to_be_deleted(
+                              input_name)
+      
+      
+      class CloudForwardingInputLog(IndexLog):
+          """
+          use Splunk forwarder to monitor log and forward data to remote servers in
+          cloud deployment
+          """
+          def __init__(
+                  self, logfile_name, sourcetype, event_count, index,
+                  fwd_username=None, fwd_password=None, fwd_mgmt_url=None,
+                  path_util=os.path, index_wait=480, rest_settings=None,
+                  logfile_dir=None):
+              """
+              CloudForwardingInputLog Init
+      
+              :type logfile_name: string
+              :param logfile_name: name of the log file
+      
+              :type sourcetype: string
+              :param sourcetype: name of sourcetype for the log file
+      
+              :type event_count: int
+              :param event_count: number of events in the log file.
+      
+              :type index: string
+              :param index: name of the index for the log file
+      
+              :type fwd_username: string
+              :param fwd_username: username of the forwarder to make rest conn
+      
+              :type fwd_password: string
+              :param fwd_password: password of the forwarder to make rest conn
+      
+              :type fwd_mgmt_url: string
+              :param fwd_mgmt_url: the forwarder management url
+      
+              :type index_wait: int
+              :param index_wait: max number of seconds to wait for
+                                 the data to be indexed
+      
+              :type rest_settings: dict
+              :param rest_settings: rest settings
+      
+              """
+              self.logger = logging.getLogger(self.__class__.__name__)
+      
+              if logfile_dir is None:
+                  if pytest.config.option.data_dir is not None:
+                      logfile_dir = pytest.config.option.data_dir
+                  else:
+                      raise PathNotFoundError("Data directory not specified.")
+      
+              full_path = os.path.join(logfile_dir, logfile_name)
+              if is_abs_path(full_path):
+                  log_path = full_path
+              else:
+                  log_path = path_util.abspath(full_path)
+      
+              super(CloudForwardingInputLog, self).__init__(
+                  logfile_name=logfile_name, sourcetype=sourcetype,
+                  event_count=event_count, index=index,
+                  logfile_dir=logfile_dir,
+                  username=fwd_username,
+                  password=fwd_password,
+                  source=log_path,
+                  mgmt_url=fwd_mgmt_url,
+                  index_wait=index_wait, rest_settings=rest_settings)
+              # for legacy test cases
+              self.sourcetype_name = sourcetype
+      
+          def index_log(self):
+              """
+              Monitor data on forwarder
+              """
+              self.logger.info(normalize_to_str(
+                  "Editing forwarder rest settings: {}".format(self.rest_settings)))
+              try:
+                  self.logger.info(normalize_to_str(
+                      "Monitoring the file: {f}".format(f=self.log_path)))
+                  self.rest.create_input_monitor(
+                      name=self.log_path, sourcetype=self.sourcetype,
+                      index=self.index)
+                  self.logger.info(
+                      "Index log {l} on index {i} with sourcetype {s}".format(
+                          l=self.log_path, i=self.index, s=self.sourcetype))
+                  self.rest.wait_for_input_monitor_to_be_created(self.log_path)
+      
+              except Exception as err:
+                  self.logger.warn(normalize_to_str(
+                      "Failed to setup the index for the log file. "
+                      "Tests may possibly fail. {e}".format(e=err)))
+      
+          def teardown(self):
+              """
+              Delete the setup done at forwarder side
+              """
+              self.logger.info(
+                  normalize_to_str('Delete input monitor if necessary'))
+              if self.rest.check_input_monitor(self.log_path):
+                  self.rest.delete_input_monitor(self.log_path)
+                  self.rest.wait_for_input_monitor_to_be_deleted(self.log_path)
+      
+    '''
+  }
+]
+isStarred: false
+isTrashed: false

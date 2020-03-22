@@ -1,0 +1,115 @@
+createdAt: "2019-07-27T05:17:27.273Z"
+updatedAt: "2019-10-28T04:57:14.083Z"
+type: "MARKDOWN_NOTE"
+folder: "1b426d7766d1e36b59e7"
+title: "Pytest usage"
+tags: []
+content: '''
+  # Pytest usage
+  
+  - py.test -k "MyClass and not method" 
+  
+  > run class or function contains "MyClass" and not contains "method" substring
+  ---
+  - py.test test_mod.py::TestClass::test_method
+  
+  > run pytest with node path (module->class->function)
+  ---
+  - py.test -m slow
+  
+  > run pytest with markers (@pytest.mark.slow)
+  ---
+  - @pytest.mark.xfail(raises=IndexError)
+  
+  > when raises IndexError then mark this case as failed
+  ---
+  - pytest fixture scope
+  
+  > class - each class call once
+  function - each function call once
+  module - each module call once
+  session - each session (running) call once
+  ---
+  - fixture tear down (yield)
+  
+  > after yield sentence, see as tear down code
+  
+  - fixture tear down (addfinalizer)
+  ```python
+  @pytest.fixture(scope="module")
+  def smtp_connection(request):
+      smtp_connection = smtplib.SMTP("smtp.gmail.com", 587, timeout=5)
+  def fin():
+          print("teardown smtp_connection")
+          smtp_connection.close()
+  request.addfinalizer(fin)
+      return smtp_connection  # provide the fixture value
+  could use multiple finalizer functions
+  ```
+  ---
+  - fixture get introspect context
+  ```python
+  @pytest.fixture(scope="module")
+  def smtp_connection(request):
+      server = getattr(request.module, "smtpserver", "smtp.gmail.com")
+      smtp_connection = smtplib.SMTP(server, 587, timeout=5)
+      yield smtp_connection
+      print("finalizing %s (%s)" % (smtp_connection, server))
+      smtp_connection.close()
+  this code could get the attribute "smtpserver" from test module
+  ```
+  ---
+  - Parametrizing fixture
+  ```python
+  @pytest.fixture(scope="module",
+                  params=["smtp.gmail.com", "mail.python.org"])
+  def smtp_connection(request):
+      smtp_connection = smtplib.SMTP(request.param, 587, timeout=5)
+      yield smtp_connection
+      print("finalizing %s" % smtp_connection)
+      smtp_connection.close()
+  request.param could trigger the test by multiple parameters and times
+  ```
+  ---
+  - pytest.mark.skip
+  ```python
+  @pytest.mark.skip(reason="no way of currently testing this")
+  
+  # skip this test method
+  def test_123():
+      pytest.skip("Not implemented")
+      assert 1 == 0
+    
+  ```
+  ---
+  - pytest.mark.skipif
+  ```python
+  @pytest.mark.skipif(sys.version_info < (3, 6), reason="requires python3.6 or higher")
+  ```
+  ---
+  - pytest.mark.xfail
+  ```python
+  @pytest.mark.xfail(sys.version_info >= (3, 6), reason="python3.6 api changes")
+  @pytest.mark.xfail(raises=RuntimeError)
+  @pytest.mark.xfail(run=False). (do not run and report as xfail)
+  pytest --runxfail: run ignore xfail
+  ```
+  ---
+  - pytest.mark.parametrize
+  ```python
+  @pytest.mark.parametrize("test_input,expected", [("3+5", 8), ("2+4", 6), ("6*9", 42)])
+  def test_eval(test_input, expected):
+      assert eval(test_input) == expected
+  @pytest.mark.parametrize("x", [0, 1])
+  @pytest.mark.parametrize("y", [2, 3])
+  def test_foo(x, y):
+      pass
+  ```
+  > This will run the test with the arguments set to x=0/y=2, x=1/y=2, x=0/y=3, and x=1/y=3 exhausting parameters in the order of the decorators.
+  
+  
+  
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

@@ -1,0 +1,1748 @@
+createdAt: "2020-01-14T08:41:51.712Z"
+updatedAt: "2020-01-14T08:42:45.264Z"
+type: "SNIPPET_NOTE"
+folder: "c75bf4e7ed3c2027bb4a"
+title: "theatre/puppets"
+tags: []
+description: "theatre/puppets"
+snippets: [
+  {
+    linesHighlighted: []
+    name: "init"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      import errno
+      import json
+      import logging
+      from socket import gethostbyname
+      
+      import re
+      import os
+      import copy
+      import httplib
+      import socket
+      import rip
+      import contextlib
+      import urllib
+      from sharedtestutils.MethodMissing import MethodMissing
+      from sharedtestutils.decorators import deprecated
+      from sharedtestutils.decorators import deprecated_by
+      
+      from ..puppeteers import Puppeteer
+      from ..utils.monitorlog import HttpInput
+      
+      
+      TRUE_VALUES = (True, 't', 'true', '1', 1)
+      
+      
+      class SimpleSplunk(object):
+          """
+          The Simple Splunk for REST-only splunk instance
+          """
+      
+          def __init__(
+                  self, web_host='localhost', splunkd_host='localhost',
+                  web_port='8000', splunkd_port='8089',
+                  username='admin', password='changeme', name=None):
+              """
+              SimpleSplunk init
+      
+              :param web_host: the specified splunkweb host
+              :param splunkd_host: the specified splunkd host
+              :param web_port: the specified splunkweb port
+              :param splunkd_port: the specified splunkd port
+              :param username: the specified splunk username
+              :param password: the specified splunk password
+              :param name: the specified instance name
+              """
+              self._web_host = web_host
+              self._splunkd_host = splunkd_host
+              self._web_port = web_port
+              self._splunkd_port = splunkd_port
+              self._username = username
+              self._password = password
+              self._name = name or splunkd_host
+      
+          def web_host(self):
+              """
+              Gets splunkweb host
+      
+              :rtype: str
+              :return: splunkweb host
+              """
+              return self._web_host
+      
+          def splunkd_host(self):
+              """
+              Gets splunkd host
+      
+              :rtype: str
+              :return: splunkd host
+              """
+              return self._splunkd_host
+      
+          def web_port(self):
+              """
+              Gets splunkweb port
+      
+              :rtype: int
+              :return: splunkweb port
+              """
+              return self._web_port
+      
+          def splunkd_port(self):
+              """
+              Gets splunkd port
+      
+              :rtype: int
+              :return: splunkd port
+              """
+              return self._splunkd_port
+      
+          def uri_base(self):
+              """
+              Gets splunkd uri base
+      
+              :rtype: str
+              :return: splunkd uri base
+              """
+              return 'https://{h}:{p}'.format(
+                  h=self.splunkd_host(), p=self.splunkd_port())
+      
+          @property
+          def username(self):
+              """
+              Gets splunk username
+      
+              :rtype: str
+              :return: splunk username
+              """
+              return self._username
+      
+          @property
+          def password(self):
+              """
+              Gets splunk password
+      
+              :rtype: str
+              :return: splunk password
+              """
+              return self._password
+      
+          @property
+          def name(self):
+              """
+              Gets splunk name
+      
+              :rtype: str
+              :return: splunk name
+              """
+              return self._name
+      
+          @property
+          def splunk_home(self):
+              """
+              Gets splunk home
+      
+              :rtype: str
+              :return: splunk home
+              """
+              return None
+      
+      
+      class PuppetStatus(object):
+          """
+          Puppet status enum
+          """
+          RUNNING = 1
+          STOPPED = 2
+      
+      
+      class BasePuppet(MethodMissing):
+          """
+          Base class for puppet, which represents one instance in splunk deployment
+          """
+      
+          def __init__(self):
+              """
+              BasePuppet Init
+              """
+              super(BasePuppet, self).__init__()
+              self.logger = logging.getLogger(self.__class__.__name__)
+      
+          @property
+          def status(self):
+              """
+              Returns the puppet status
+              """
+              raise NotImplementedError
+      
+      
+      class SplunkPuppet(BasePuppet):
+          """
+          Puppet manages one splunk instance
+          """
+      
+          def __init__(self, splunk):
+              """
+              SplunkPuppet init
+      
+              :type splunk: Splunk
+              :param splunk: the specified splunk instance
+              """
+              super(SplunkPuppet, self).__init__()
+              self._splunk = splunk
+              self._init_rest()
+              self.logger = logging.getLogger(self.__class__.__name__)
+      
+          @property
+          @deprecated
+          def splunk(self):
+              """
+              Gets the wrapped splunk instance
+              """
+              return self._splunk
+      
+          @property
+          def fileutils(self):
+              """
+              Gets the splunk fileutils
+              """
+              return self._splunk.fileutils
+      
+          @property
+          def splunk_home(self):
+              """
+              Gets the splunk home
+      
+              :rtype: str
+              :return: splunk home
+              """
+              return self._splunk.splunk_home
+      
+          @property
+          def username(self):
+              """
+              Gets splunk username
+      
+              :rtype: str
+              :return: splunk username
+              """
+              return self._splunk.username
+      
+          @property
+          def password(self):
+              """
+              Gets splunk password
+      
+              :rtype: str
+              :return: splunk password
+              """
+              return self._splunk.password
+      
+          def splunkd_host(self):
+              """
+              Gets splunkd host
+      
+              :rtype: str
+              :return: splunkd host
+              """
+              return self._splunk.splunkd_host()
+      
+          def splunkd_port(self):
+              """
+              Gets splunkd port
+      
+              :rtype: int
+              :return: splunkd port
+              """
+              return self._splunk.splunkd_port()
+      
+          def splunkd_scheme(self):
+              """
+              Gets splunkd scheme
+      
+              :rtype: str
+              :return: The splunkd scheme
+              """
+              return 'https' if self._is_splunkd_ssl_enabled() else 'http'
+      
+          def web_host(self):
+              """
+              Gets web host
+      
+              :rtype: str
+              :return: web host
+              """
+              return self._splunk.web_host()
+      
+          def web_port(self):
+              """
+              Gets web port
+      
+              :rtype: int
+              :return: web port
+              """
+              return self._splunk.web_port()
+      
+          def web_scheme(self):
+              """
+              Gets splunkweb scheme
+      
+              :rtype: str
+              :return: The splunkweb scheme
+              """
+              return 'https' if self._is_web_ssl_enabled() else 'http'
+      
+          def _init_rest(self):
+              """
+              Init rest
+              """
+              conn = rip.RESTConnectorReplacement(
+                  username=self.username, password=self.password,
+                  uri_base=self.uri_base())
+      
+              self.rest = rip.RESTInPeace(conn)
+      
+          @property
+          @deprecated
+          def nobody_rest(self):
+              """
+              Gets nobody rest with system namespace
+              """
+              self.rest.change_namespace('nobody', 'system')
+              return self.rest
+      
+          def token_rest(self, token):
+              """
+              Get rest with token
+              """
+              conn = rip.RESTConnectorReplacement(
+                  username=self.username,
+                  password=self.password,
+                  uri_base=self.uri_base(),
+                  token=token)
+              return rip.RESTInPeace(conn)
+      
+          def get_http_input(self, token, port='8088',
+                             ack=False, ssl=False, channel=None):
+              """
+              Get http event collector object
+      
+              :param token: http event collector token
+              :type token: str
+      
+              :param port: http event collector port number
+              :type port: str
+      
+              :param ack: should use ack
+              :type ack: bool
+      
+              :param ssl: should use ssl
+              :type ssl: bool
+      
+              :param channel: channel used for http input
+              :type channel: str
+      
+              :return: http event collector object
+              :rtype: HttpInput
+              """
+              return HttpInput(
+                  host=self.web_host(),
+                  port=port,
+                  token=token,
+                  channel=channel,
+                  ack=ack,
+                  ssl=ssl)
+      
+          def uri_base(self, scheme=True, use_server_name=False):
+              """
+              Gets splunk uri base url
+      
+              :param scheme: if true, result contains the uri scheme
+                             if false, only the raw uri will be returned
+              :type scheme: bool
+      
+              :param use_server_name: use host name but not ip
+                                      if set this value as True
+              :type use_server_name: bool
+      
+              :return: the uri base
+              :rtype: str
+              """
+              if use_server_name:
+                  _uri_base = '{scheme}://{host}:{web_port}'.format(
+                      scheme=self.splunkd_scheme(),
+                      host=self.server_name,
+                      web_port=self.splunkd_port())
+              else:
+                  _uri_base = self._splunk.uri_base()
+      
+              if not scheme:
+                  _uri_base = re.sub("http.?://", "", _uri_base)
+      
+              return _uri_base
+      
+          def web_base(self):
+              """
+              Gets splunk web base url
+              """
+              root_endpoint = self._get_root_endpoint()
+              web_base = "{scheme}://{host}:{web_port}{end_point}".format(
+                  scheme=self.web_scheme(), host=self.web_host(),
+                  web_port=self.web_port(),
+                  end_point=root_endpoint if root_endpoint != '/' else '')
+              return web_base
+      
+          def _get_root_endpoint(self):
+              """
+              Gets root endpoint in settings.
+              """
+              return self.rest.get_property('web', 'settings/root_endpoint')[1]
+      
+          def _is_web_ssl_enabled(self):
+              """
+              Return True if splunk web ssl is enabled
+              """
+              result = self.rest.get_property(
+                  'web', 'settings/enableSplunkWebSSL')[1]
+              return result.lower() in TRUE_VALUES
+      
+          def _is_splunkd_ssl_enabled(self):
+              """
+              Return True if splunkd ssl is enabled
+              """
+              result = self.rest.get_property(
+                  'server', 'sslConfig/enableSplunkdSSL')[1]
+              return result.lower() in TRUE_VALUES
+      
+          def restart(self, timeout=360, use_rest=True):
+              """
+              Restart splunk instance
+              :param use_rest: Restart Splunk via REST or not, default is True.
+              :param timeout: REST restart time
+              """
+              if use_rest:
+                  self.rest.restart(timeout=timeout)
+                  if hasattr(self.splunk, '_splunk_has_started'):
+                      self.splunk._splunk_has_started()
+              else:
+                  # Restart Splunk by native way rather than REST.
+                  # If no 'self.splunk.restart()' then fallback restart via REST
+                  try:
+                      self.splunk.restart()
+                  except AttributeError:
+                      self.rest.restart(timeout=timeout)
+              self._init_rest()
+      
+          def start(self, **kwargs):
+              """
+              Start splunk instance
+              """
+              self._splunk.start(**kwargs)
+              self._init_rest()
+      
+          def stop(self):
+              """
+              Stop splunk instance
+              """
+              self._splunk.stop()
+      
+          @property
+          def name(self):
+              """
+              Gets splunk name
+              """
+              return self._splunk.name
+      
+          @property
+          def connection(self):
+              """
+              Gets the ssh connection that is used
+      
+              :rtype: SSHConnection
+              :return: ssh connection
+              """
+              return self._splunk.connection
+      
+          def is_local(self):
+              """
+              Check if the splunk is local instance
+              """
+              return self.splunkd_host() in ['localhost', '127.0.0.1', '::1']
+      
+          def is_running(self):
+              """
+              Check if the splunk is running
+              """
+              try:
+                  with self.rest.namespace('nobody', 'system'):
+                      resp = self.rest.run_info(output_mode='json')[0]['status']
+                      if int(resp) in self.rest.SUCCESS_CODES:
+                          return True
+                      else:
+                          self.logger.warn(
+                              'Splunkd is accessible but we are unable to '
+                              'successfully get the server info.')
+                          return False
+              except (socket.error, httplib.HTTPException) as err:
+                  self.logger.warn('[socket, http exception]Failed to check if'
+                                   ' splunk is running: {}'.format(err))
+                  return False
+              except Exception as err:
+      
+                  # handle expected errors to be False and raise everything else
+                  if getattr(err, 'errno', None) in [errno.ECONNREFUSED,
+                                                     errno.EHOSTDOWN,
+                                                     errno.ECONNRESET]:
+                      self.logger.warn(
+                          'Failed to check if splunk is running: {e}'.format(e=err))
+                      return False
+                  raise
+      
+          @property
+          def status(self):
+              """
+              Returns the status of the splunk
+              :rtype: PuppetStatus
+              """
+              return (PuppetStatus.RUNNING if self.is_running()
+                      else PuppetStatus.STOPPED)
+      
+          @property
+          def version(self):
+              """
+              Gets splunk version
+      
+              :rtype: str
+              :return: splunk version
+              """
+              server_info = self.server_info
+              return 'Splunk {t} {v} (build {b})'.format(
+                  t=server_info['product_type'],
+                  v=server_info['version'],
+                  b=server_info['build'])
+      
+          @property
+          @deprecated_by('server_info')
+          def info_content(self):
+              """
+              Gets the server info
+      
+              :rtype: dict
+              :return: server info dict
+              """
+              return self.server_info
+      
+          @property
+          def server_info(self):
+              """
+              Gets the server info
+      
+              :rtype: dict
+              :return: server info dict
+                       return empty dict if is not running
+              """
+              if self.is_running():
+                  with self.rest.namespace('nobody', 'system'):
+                      return json.loads(
+                          self.rest.run_info(
+                              output_mode='json')[1])['entry'][0]['content']
+              else:
+                  return {}
+      
+          def has_server_role(self, server_role):
+              """
+              Check if the puppet has the specified server role.
+      
+              :type server_role: str
+              :param server_role: the specified server role to check
+      
+              :rtype: bool
+              :return: True if the puppet has the specified server role
+              """
+              server_info = self.server_info
+              return ('server_roles' in server_info and
+                      server_role in server_info['server_roles'])
+      
+          @property
+          def host_os(self):
+              \'''
+              Gets the host OS, e.g. 'Linux', 'Windows', or 'Darwin'.
+      
+              :return: Operating System of the host machine
+              :rtype: string
+              \'''
+              host_os = self._splunk.get_host_os()
+              # in windows orca env, os type returned is cygwin_nt-10.0-14393, which
+              # is returned by helmut, work it around with the fix.
+              if 'cygwin_nt' in host_os.lower():
+                  return 'Windows'
+              return host_os
+      
+          @property
+          def host_ip(self):
+              \'''
+              Gets the ip address of the machine hosting this puppet
+              \'''
+              return gethostbyname(self._splunk.splunkd_host())
+      
+          @property
+          def host_arch(self):
+              \'''
+              Get the host architecture
+      
+              :return: architecture of the host machine (64 bit/ 32 bit)
+              :rtype: string
+              \'''
+              return self._splunk.get_host_platform()
+      
+          def is_remote_login_enabled(self):
+              """
+              Check if remote login is enabled.
+              7.1+ behavior is not changed due to SPL-160369
+              """
+              try:
+                  value = self.nobody_rest.get_property(
+                      "server", "general/allowRemoteLogin")[1]
+                  if value == 'always':
+                      return True
+                  elif (value == 'requireSetPassword' and
+                        self.username == 'admin' and
+                        self.password != 'changeme'):
+                      return True
+                  else:
+                      return False
+              except KeyError:
+                  return False
+      
+          def set_allow_remote_login(self, value='always'):
+              """
+              Set allowRemoteLogin to always.
+              7.1+ behavior is not changed due to SPL-160369
+              """
+              restart_req = False
+              if (isinstance(self.splunk, SimpleSplunk) and
+                      self.username == 'admin' and
+                      self.password == 'changeme'):
+                  raise ValueError("Either SSH access should be provided to Splunk"
+                                   "or admin password should be changed")
+      
+              if (value == 'requireSetPassword' and
+                      self.password == 'changeme'):
+                  raise ValueError("Admin password should be changed to something"
+                                   "other than changeme")
+      
+              elif self.is_local():
+                  self._splunk.create_logged_in_connector(
+                      username=self.username,
+                      password=self.password)
+                  self._splunk.confs().create('server')
+                  allow_remote_login = self._splunk.confs()[
+                      'server']['general']['allowRemoteLogin']
+      
+                  if allow_remote_login != value:
+                      self.logger.info("Setting remoteLogin for a local instance")
+                      self._splunk.confs()['server']['general'][
+                          'allowRemoteLogin'] = value
+                      restart_req = True
+      
+              elif self.password == 'changeme':
+                  self.logger.info("Setting remoteLogin for a remote instance")
+                  self.connection.execute(
+                      "curl -u admin:{password} -k "
+                      "https://localhost:{mgmt_port}"
+                      "/servicesNS/nobody/system/properties/server/general/ "
+                      "-d 'allowRemoteLogin={new_value}'".format(
+                          mgmt_port=self.splunkd_port(),
+                          password=self.password,
+                          new_value=value))
+                  restart_req = True
+      
+              else:
+                  if self.server_info.get('instance_type') != 'cloud':
+                      with self.rest.namespace('nobody', 'system'):
+                          self.rest.edit_property(
+                              'server', 'general', **{'allowRemoteLogin': value})
+                  else:
+                      # It is a Splunk Cloud instance hence remoteLogin is enabled
+                      self.logger.info("Cloud Splunk instance detected so "
+                                       "remoteLogin is already enabled")
+                  return
+      
+              if restart_req:
+                  self.restart()
+      
+          def disable_instrumentation_modal(self, restart_req=True, use_rest=True):
+              """
+              Disable instrumentation modal
+      
+              :type restart_req: bool
+              :param restart_req: request to restart splunk
+                                  after config change or not
+              :param use_rest: Restart Splunk via REST or not, default is True to
+              keep consistent in theatre.
+              :rtype: bool
+              :return: True if instrumentation config change is made
+              """
+              with self.rest.namespace('nobody', 'splunk_instrumentation'):
+                  instrumentation_settings = json.loads(
+                      self.rest.get_telemetry('general', output_mode='json')[1])
+      
+                  if 'entry' in instrumentation_settings:
+                      opt_in_version_ack = (
+                          instrumentation_settings['entry'][0]['content']
+                          .get('optInVersionAcknowledged'))
+                      opt_in_version = (
+                          instrumentation_settings['entry'][0]['content']
+                          .get('optInVersion'))
+                      self.logger.info(
+                          "optInVersionAcknowledged is {} and optInVersion is {}"
+                          "".format(opt_in_version_ack, opt_in_version))
+      
+                      if opt_in_version_ack != opt_in_version:
+                          self.logger.info(
+                              "Setting Instrumentation version to {v} to avoid "
+                              "modal appearing on login".format(v=opt_in_version))
+                          self.rest.edit_telemetry(
+                              'general',
+                              **{"showOptInModal": 0,
+                                 "optInVersionAcknowledged": opt_in_version})
+      
+                          if restart_req:
+                              self.restart(use_rest=use_rest)
+      
+                          # instrumentation config changed
+                          return True
+      
+              # nothing changed
+              return False
+      
+          def disable_python_3_impact_modal(self):
+              """
+              Disable Python 3 notification modal
+              :rtype: bool
+              :return: True if user-prefs config change is made
+              """
+              with self.rest.namespace('nobody', 'search'):
+                  self.rest.edit_user_pref(
+                      'general_default', **{"notification_python_3_impact": False})
+      
+                  # user-prefs config changed
+                  return True
+      
+          @property
+          @deprecated
+          def server_name(self):
+              """
+              Gets the spunk server name
+              """
+              return self.nobody_rest.get_property(
+                  'server', 'general/serverName')[1]
+      
+          @server_name.setter
+          @deprecated
+          def server_name(self, server_name):
+              """
+              Configure server name.
+              Restart is required later to take effect.
+      
+              :param server_name: the specified server name
+              """
+              self.nobody_rest.edit_property(
+                  'server', 'general', serverName=server_name)
+      
+          @property
+          @deprecated
+          def puppet_type(self):
+              """
+              Get the clustering mode and returns the cluster node if clustering is
+              on and 'standalone' if clustering is disabled.
+              The mode can be master, searchhead, slave and standalone.
+      
+              :rtype: string
+              :return: the clustering mode.
+              """
+              clustering_mode = self.nobody_rest.get_property(
+                  'server',
+                  sub_endpoint='clustering/mode',
+                  output_mode='json')[1]
+              if clustering_mode == 'disabled':
+                  return 'standalone'
+              return clustering_mode
+      
+          @contextlib.contextmanager
+          def settings(self, settings, restart=True, timeout=120, use_rest=True):
+              """
+              Change conf file settings in context. See following usage example:
+              >>> with self.settings(settings, use_rest=False):
+              >>>     ......
+      
+              :type settings: dict
+              :param settings: dictionary of .conf settings
+      
+              :type restart: bool
+              :param restart: restart splunk to make the changes take effect
+      
+              :type timeout: int
+              :param timeout: timeout time of restart splunk
+      
+              :type use_rest: bool
+              :param use_rest: Restart Splunk via REST or not, default is True to
+                               keep consistent in theatre.
+              """
+              original_settings = self.configure_settings(settings)
+              self.logger.debug('original_settings: {}'.format(original_settings))
+              if restart:
+                  self.restart(timeout=timeout, use_rest=use_rest)
+              try:
+                  yield
+              finally:
+                  self.revert_settings(original_settings)
+                  if restart:
+                      self.restart(timeout=timeout, use_rest=use_rest)
+      
+          def _get_app_path(self, user_namespace, app_namespace):
+              """
+              :type user_namespace: str
+              :param user_namespace: user namespace
+              :type app_namespace: str
+              :param app_namespace: app namespace
+              :rtype: str
+              :return: absolute splunk app path
+              """
+              if user_namespace == 'nobody':
+                  if app_namespace == 'system':
+                      app_path = os.path.join(
+                          self._splunk.splunk_home, 'etc', app_namespace)
+                  else:
+                      app_path = os.path.join(
+                          self._splunk.splunk_home, 'etc', 'apps', app_namespace)
+              else:
+                  app_path = os.path.join(
+                      self._splunk.splunk_home, 'etc', 'users',
+                      user_namespace, app_namespace)
+              return app_path
+      
+          def configure_settings(self, settings):
+              """
+              configure the .conf file settings, calling restart()
+               to make settings effective
+      
+              :type settings: dict
+              :param settings: dictionary of .conf settings
+      
+              :rtype: dict
+              :return: original conf file settings
+              """
+              original_settings = copy.deepcopy(settings)
+              rest_only = self.splunk_home is None
+      
+              for user_namespace, apps in settings.items():
+                  for app_namespace, app_settings in apps.items():
+                      self.rest.change_namespace(user_namespace, app_namespace)
+                      ori_app_settings = original_settings[user_namespace][
+                          app_namespace]
+                      for conf_file in app_settings.keys():
+                          if not rest_only:
+                              local_conf_path = os.path.join(
+                                  self._get_app_path(user_namespace, app_namespace),
+                                  'local', '{}.conf'.format(conf_file))
+      
+                          status = self.rest.get_property(
+                              conf_file, output_mode='json')[0]['status']
+      
+                          if status == '404':
+                              self.logger.debug(
+                                  '{}.conf is not found.'.format(conf_file))
+                              self.rest.create_property(
+                                  output_mode='json', **{'__conf': conf_file})
+                              ori_app_settings[conf_file] = None
+                          elif not rest_only:
+                              if self.fileutils.isfile(local_conf_path):
+                                  self.logger.debug(
+                                      '{} exists. Save the original '
+                                      'conf settings.'.format(local_conf_path))
+                                  ori_contents = self.fileutils.get_file_contents(
+                                      local_conf_path)
+                                  ori_app_settings[conf_file] = ori_contents
+                              else:
+                                  self.logger.debug(
+                                      '{} does not exist.'.format(local_conf_path))
+                                  ori_app_settings[conf_file] = None
+      
+                          if not rest_only and app_settings[conf_file] is None:
+                              if self.fileutils.isfile(local_conf_path):
+                                  self.fileutils.delete_file(local_conf_path)
+                          else:
+                              for stanza in app_settings[conf_file].keys():
+                                  url_quoted_stanza = urllib.quote(stanza, safe='')
+                                  if self.rest.get_property(
+                                          conf_file, sub_endpoint=url_quoted_stanza,
+                                          output_mode='json')[0]['status'] == '404':
+                                      self.rest.edit_property(
+                                          conf_file, **{'__stanza': stanza})
+                                  for attr, value in app_settings[conf_file][
+                                          stanza].items():
+                                      self.rest.edit_property(
+                                          conf_file, sub_endpoint=url_quoted_stanza,
+                                          output_mode='json', **{attr: value})
+              if rest_only:
+                  self.logger.warn('The return value of configure_settings() may be '
+                                   'incorrect for REST only connection.')
+              return original_settings
+      
+          def revert_settings(self, settings):
+              """
+              revert settings done by method configure_settings, calling restart()
+              to make settings effective
+      
+              :type settings: dict
+              :param settings: dictionary of .conf settings
+              """
+              for user_namespace, apps in settings.items():
+                  for app_namespace, app_settings in apps.items():
+                      self.rest.change_namespace(user_namespace, app_namespace)
+                      for conf_file in app_settings.keys():
+                          local_conf_path = os.path.join(
+                              self._get_app_path(user_namespace, app_namespace),
+                              'local', '{}.conf'.format(conf_file))
+      
+                          if app_settings[conf_file] is None:
+                              self.logger.debug(
+                                  'There was no {} originally. '
+                                  'Delete it.'.format(local_conf_path))
+                              if self.fileutils.isfile(local_conf_path):
+                                  self.fileutils.delete_file(local_conf_path)
+                          else:
+                              self.logger.debug(
+                                  'There was {} originally. '
+                                  'Revert the settings to original ones.'.format(
+                                      local_conf_path))
+                              self.fileutils.write_file_contents(
+                                  local_conf_path, app_settings[conf_file],
+                                  mode='wb')
+      
+          def create_settings_dict(
+                  self, user, app, conf_file, stanza, key_val_pairs=None):
+              \'''
+              returns a dict which can be passed to the configure_settings method of
+              Puppet
+              \'''
+              key_val_pairs = key_val_pairs if key_val_pairs else {}
+              return {user: {app: {conf_file: {stanza: key_val_pairs}}}}
+      
+          def method_missing(self, attr, *args, **kwargs):
+              if hasattr(self.splunk, "{a}".format(a=attr)):
+                  return getattr(self.splunk, attr)
+              else:
+                  msg = "Splunk doesn't respond to: '{a}'".format(a=attr)
+                  raise AttributeError(msg)
+      
+          def __str__(self):
+              """
+              Strings for users
+              """
+              if self.is_running():
+                  return 'splunkweb={w}, splunkd={d}'.format(
+                      w=self.web_base(), d=self.uri_base())
+              else:
+                  return 'host={}'.format(self.host_ip)
+      
+          def __repr__(self):
+              """
+              Strings for developers
+              """
+              if self.is_running():
+                  return '{p}({s}(splunkweb={w}, splunkd={d}))'.format(
+                      p=self.__class__.__name__, s=self._splunk.__class__.__name__,
+                      w=self.web_base(), d=self.uri_base())
+              else:
+                  return '{p}({s}(host={h}))'.format(
+                      p=self.__class__.__name__, s=self._splunk.__class__.__name__,
+                      h=self.host_ip)
+      
+          def __eq__(self, other):
+              """
+              Check if two puppets are equal
+      
+              :type other: Puppet
+              :param other: another puppet
+      
+              :rtype: bool
+              :return: True if equal
+              """
+              if isinstance(other, SplunkPuppet):
+                  return self.splunk == other.splunk
+              else:
+                  return NotImplemented
+      
+          def __hash__(self):
+              """
+              Gets the hash value
+      
+              :rtype: int
+              :return: hash value
+              """
+              return hash(self._splunk)
+      
+          @classmethod
+          def generate_accessors(cls, name=None, plural_name=None):
+              """
+              Generate accessor methods
+      
+              :type name: str
+              :param name: the specified singular name
+      
+              :type plural_name: str
+              :param plural_name: the specified plural name
+              """
+              # Generate as-method in Puppet
+      
+              def gen_as_method(self):
+                  return cls(self.splunk)
+      
+              if name is None:
+                  # e.g. DMCServer -> DMC_Server
+                  name = re.sub(
+                      r'([A-Z]+)([A-Z][a-z])', r'\\1_\\2', cls.__name__)
+                  # e.g. SearchHead -> Search_Head
+                  name = re.sub(
+                      r'([a-z\\d])([A-Z])', r'\\1_\\2', name)
+                  name = name.lower()
+      
+              gen_as_method.__doc__ = \'''
+                  as {c}
+                  \'''.format(c=cls.__name__)
+              gen_as_method.__name__ = 'as_{n}'.format(n=name)
+              setattr(SplunkPuppet, gen_as_method.__name__, property(gen_as_method))
+      
+              # Generate property in Stage and Site
+              from theatre.stages import Stage
+              from theatre.stages import Site
+      
+              generate_puppet_property(Stage, 'puppets', source_class=SplunkPuppet)
+              generate_puppet_property(Site, 'puppets', source_class=SplunkPuppet)
+      
+              property_name = ('{n}s'.format(n=name)
+                               if plural_name is None else plural_name)
+              generate_puppet_property(Stage, property_name, source_class=cls)
+      
+      
+      def generate_puppet_property(target_class, property_name, source_class):
+          """
+          Generate puppet property in the target class
+      
+          :type target_class: class
+          :param target_class: the specified target class
+      
+          :type property_name: str
+          :param property_name: the specified property name generated
+      
+          :type source_class: class
+          :param source_class: the specified source class
+          """
+          property_doc_name = property_name.replace('_', ' ')
+          field_name = '_{n}'.format(n=property_name)
+      
+          def get_puppets(self):
+              return Puppeteer(getattr(self, field_name, []))
+      
+          get_puppets.__doc__ = \'''
+              Gets puppeteer of {n}
+              \'''.format(n=property_doc_name)
+          get_puppets.__name__ = property_name
+      
+          def set_puppets(self, splunks):
+              splunks = splunks or []
+              setattr(
+                  self, field_name,
+                  [splunk if isinstance(splunk, source_class) else
+                   source_class(splunk) for splunk in splunks])
+      
+          set_puppets.__doc__ = \'''
+              Sets {n}
+      
+              :type splunks: list
+              :param splunks: the specified splunks for {n}
+              \'''.format(n=property_doc_name)
+          set_puppets.__name__ = 'set_{n}'.format(n=property_name)
+      
+          setattr(target_class, property_name,
+                  property(get_puppets, set_puppets))
+      
+      
+      # Alias for backwards compatibility
+      Puppet = SplunkPuppet
+      
+    '''
+  }
+  {
+    name: "search_head"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8
+      
+      import json
+      import shutil
+      import socket
+      import tarfile
+      
+      import os
+      from polling import poll_for_condition
+      from sharedtestutils.decorators import deprecated
+      
+      from . import Puppet
+      from ..decorators import puppet
+      
+      TIMEOUT = 180
+      FREQUENCY = 10
+      
+      
+      @puppet
+      class SearchHead(Puppet):
+          """
+          Search Head in splunk deployment
+          """
+      
+          @property
+          def generation(self):
+              """
+              Gets generation info.
+              e.g.
+              >>> generation_id = search_head.generation['generation_id']
+      
+              :rtype: dict
+              :return: generation info
+              """
+              return json.loads(
+                  self.rest.get_cluster_searchhead(
+                      'generation', output_mode='json')[1])['entry'][0]['content']
+      
+          def wait_for_app_available(
+                  self, app_name, timeout=TIMEOUT, frequency=FREQUENCY):
+              """
+              Wait for the the specified app to be available
+      
+              :type app_name: string
+              :param app_name: the app name
+      
+              :type timeout: int
+              :param timeout: time out
+      
+              :type frequency: int
+              :param frequency: frequency for checking
+              """
+              poll_for_condition(
+                  self.rest.check_app_local, [app_name],
+                  timeout=timeout,
+                  frequency=frequency,
+                  error_message='Failed to wait for app {a} '
+                                'to be available'.format(a=app_name))
+      
+          def deploy_app(self, app_name, app_path, remote_dir):
+              """
+              Deploy the specified app
+      
+              :type app_name: string
+              :param app_name: the app name
+      
+              :type app_path: string
+              :param app_path: the app path
+      
+              :type remote_dir: string
+              :param remote_dir: the remote dir to put the app before
+                                 getting installed
+              """
+              if self.rest.check_app_local(app_name):
+                  self.logger.info('App {a} is already deployed.'.format(a=app_name))
+                  return
+      
+              tar_name = "{f}.tar".format(f=app_name)
+              tar_path = os.path.abspath(os.path.join(app_path, app_name))
+      
+              self.logger.info('TarPath: {t}'.format(t=tar_path))
+      
+              try:
+                  with tarfile.open(tar_name, 'w') as tar_file:
+                      tar_file.add(tar_path, arcname=app_name)
+              except Exception as err:
+                  self.logger.error(
+                      "Failed to tar up: '{t}'. {e}".format(t=app_name, e=err))
+              try:
+                  self.splunk.fileutils.send(
+                      tar_name, remote_dir)
+                  remote_tar_file = os.path.join(remote_dir, tar_name)
+                  self.rest.create_app_local(
+                      name=remote_tar_file, update=True, filename=True)
+              finally:
+                  os.remove(tar_name)
+      
+          def add_ldap(
+                  self, name, host, port, bind_dn, bind_dn_password, group_base_dn,
+                  group_mapping_attribute, group_member_attribute,
+                  group_name_attribute, use_base_dn, real_name_attribute,
+                  user_name_attribute, **kwargs):
+              """
+              Enable the specified LDAP strategy
+              """
+              strategy = {
+                  "SSLEnabled": 0,
+                  "anonymous_referrals": 1,
+                  "bindDN": bind_dn,
+                  "bindDNpassword": bind_dn_password,
+                  "groupBaseDN": group_base_dn,
+                  "groupMappingAttribute": group_mapping_attribute,
+                  "groupMemberAttribute": group_member_attribute,
+                  "groupNameAttribute": group_name_attribute,
+                  "host": host,
+                  "nestedGroups": 0,
+                  "network_timeout": 20,
+                  "port": port,
+                  "realNameAttribute": real_name_attribute,
+                  "sizelimit": 1000,
+                  "timelimit": 15,
+                  "userBaseDN": use_base_dn,
+                  "userNameAttribute": user_name_attribute,
+                  "name": name,
+                  "output_mode": 'json'
+              }
+              strategy.update(kwargs)
+              if not self.rest.check_ldap_strategy(name):
+                  self.rest.create_ldap_strategy(**strategy)
+      
+          def configure_ldap_group_mapping(self, ldap_name, role, ldap_group):
+              """
+              Map LDAP group to splunk role.
+              Restart is required later to take effect.
+      
+              :type ldap_name: string
+              :param ldap_name: LDAP name
+      
+              :type role: string
+              :param role: splunk role
+      
+              :type ldap_group: string
+              :param ldap_group: LDAP group separated by ';'
+              """
+              role_map = 'roleMap_{l}'.format(l=ldap_name)
+      
+              self.nobody_rest.edit_property(
+                  'authentication', **{'__stanza': role_map})
+              self.nobody_rest.edit_property(
+                  'authentication', role_map, **{role: ldap_group})
+      
+          def configure_proxy_sso(
+                  self, proxy_server_host, proxy_server_url, sso_mode='permissive'):
+              """
+              Enable the proxy server based SSO.
+              Restart is required later to take effect.
+      
+              :type proxy_server_host: string
+              :param proxy_server_host: proxy server host
+      
+              :type proxy_server_url: string
+              :param proxy_server_url: proxy server url
+      
+              :type sso_mode: string
+              :param sso_mode: the sso mode. e.g. permissive
+              """
+              self.nobody_rest.edit_property(
+                  'server', 'general', trustedIP='127.0.0.1')
+      
+              self.nobody_rest.edit_property(
+                  'web', 'settings',
+                  **{'trustedIP': '127.0.0.1,{p}'.format(p=proxy_server_host),
+                     'root_endpoint': '/{r}'.format(r=self._get_sso_root_endpoint()),
+                     'tools.proxy.on': 'False',
+                     'remoteUser': 'Remote-User',
+                     'SSOMode': sso_mode,
+                     'enableWebDebug': 'true'})
+      
+              scheme = proxy_server_url.split('//')[0]
+              self.nobody_rest.edit_property(
+                  'web', 'settings',
+                  **{'embed_uri': '{s}//{h}:{p}/{r}'.format(
+                      s=scheme,
+                      h=self.splunk.splunkd_host(),
+                      p=self.splunk.web_port(),
+                      r=self._get_sso_root_endpoint())})
+      
+              self.nobody_rest.edit_property(
+                  'alert_actions', 'default', hostname='{u}/{r}'.format(
+                      u=proxy_server_url, r=self._get_sso_root_endpoint()))
+      
+              self.nobody_rest.edit_property(
+                  'alert_actions', 'email', hostname=proxy_server_url)
+      
+          def configure_mailserver(self, mailserver, mail_from):
+              """
+              Configure mail server for email alert.
+              Restart is required later to take effect.
+      
+              :type mailserver: string
+              :param mailserver: mail server for email alert
+      
+              :type mail_from: string
+              :param mail_from: email sender
+              """
+              self.nobody_rest.edit_property(
+                  'alert_actions', 'email',
+                  ** {'mailserver': mailserver, 'from': mail_from})
+      
+          def _get_sso_root_endpoint(self):
+              """
+              Gets root endpoint for proxy SSO
+              """
+              if self.is_local():
+                  root_endpoint = socket.gethostbyname(socket.gethostname())
+              else:
+                  root_endpoint = self.splunk.splunkd_host()
+              return root_endpoint
+      
+          def proxy_sso_login(self, browser, proxy_server_url, username, password):
+              """
+              Splunk SSO login through proxy server.
+      
+              :type browser: webdriver
+              :param browser: webdriver browser instance, firefox, ie or chrome etc.
+      
+              :type proxy_server_url: string
+              :param proxy_server_url: SSO proxy server url
+      
+              :type username: string
+              :param username: user name
+      
+              :type password: string
+              :param password: password
+              """
+              url = self.proxy_web_base(proxy_server_url)
+              parts = url.split('//')
+              credentials = ':'.join([username, password])
+              url_with_credentials = '{p}//{c}@{l}'.format(
+                  p=parts[0], c=credentials, l=parts[1])
+              browser.get(url_with_credentials)
+      
+          def proxy_web_base(self, proxy_server_url):
+              """
+              Gets web base url based on proxy server url
+      
+              :type proxy_server_url: string
+              :param proxy_server_url: proxy server url
+      
+              :return web base url
+              """
+              return '{p}/{h}'.format(
+                  p=proxy_server_url, h=self._get_sso_root_endpoint())
+      
+          def configure_https_in_web(
+                  self, priv_key_source_path, ca_cert_source_path):
+              """
+              Enable HTTPS in Splunk Web with given private key and certificate.
+              Restart is required later to take effect.
+      
+              :type priv_key_source_path: string
+              :param priv_key_source_path: the specified private key path
+      
+              :type ca_cert_source_path: string
+              :param ca_cert_source_path: the specified ca cert path
+              """
+              self.logger.info('Prepare certificates')
+              priv_key_name = os.path.basename(priv_key_source_path)
+              ca_cert_name = os.path.basename(ca_cert_source_path)
+      
+              target_dir = os.path.join(
+                  self.splunk.etc_path, 'auth', 'splunkweb')
+      
+              if self.is_local():
+                  shutil.copy(priv_key_source_path, target_dir)
+                  shutil.copy(ca_cert_source_path, target_dir)
+              else:
+                  self.splunk.fileutils.send(priv_key_source_path, target_dir)
+                  self.splunk.fileutils.send(ca_cert_source_path, target_dir)
+      
+              priv_key_target_path = os.path.join(
+                  'etc', 'auth', 'splunkweb', priv_key_name)
+              ca_cert_target_path = os.path.join(
+                  'etc', 'auth', 'splunkweb', ca_cert_name)
+      
+              self.logger.info('Config web.conf for https')
+              self.nobody_rest.edit_property(
+                  'web', 'settings',
+                  **{'enableSplunkWebSSL': 'true',
+                     'privKeyPath': priv_key_target_path,
+                     'caCertPath': ca_cert_target_path})
+      
+          def disable_ui_tours(self):
+              """
+              Disable ui tours
+              """
+              content = json.loads(
+                  self.nobody_rest.get_all_ui_tour(output_mode='json')[1])
+              if 'entry' in content:
+                  tours = [entry['name'] for entry in content['entry']]
+                  for tour in tours:
+                      self.nobody_rest.edit_ui_tour(tour, viewed=1)
+      
+          def enable_pooling(self, storage_path):
+              """
+              Enable search head pooling.
+              Restart is required later to take effect.
+      
+              :type storage_path: str
+              :param storage_path: the specified storage path
+              """
+              self.nobody_rest.edit_property(
+                  'server', 'pooling',
+                  **{'state': 'enabled', 'storage': storage_path})
+      
+          def disable_pooling(self):
+              """
+              Disable search head pooling.
+              Restart is required later to take effect.
+              """
+              self.nobody_rest.edit_property(
+                  'server', 'pooling', state='disabled')
+      
+          @deprecated
+          def is_captain(self):
+              """
+              returns True if it is a SHC captain, else returns False
+      
+              :rtype: boolean
+              :return: True/False
+              """
+              return self.has_server_role('shc_captain')
+      
+          def add_distributed_search_peers(self, search_peers):
+              """
+              Add distributed search peers
+      
+              :type search_peers: list
+              :param search_peers: the specified distributed search peers
+              """
+              for search_peer in search_peers:
+                  self.add_distributed_search_peer(search_peer)
+      
+          def add_distributed_search_peer(self, search_peer):
+              """
+              Add distributed search peer
+      
+              :type search_peer: Puppet
+              :param search_peer: the specified distributed search peer
+              """
+              self.nobody_rest.create_distsearch_peer(
+                  output_mode='json',
+                  **{'name': '{h}:{p}'.format(
+                      h=search_peer.splunk.splunkd_host(),
+                      p=search_peer.splunk.splunkd_port()),
+                     'remoteUsername': search_peer.splunk.username,
+                     'remotePassword': search_peer.splunk.password})
+      
+          def enable_distributed_search_peer(self, search_peer):
+              """
+              enable a distributed search peer
+      
+              :type search_peer: Puppet
+              :param search_peer: the specified distributed search peer
+              """
+              self.nobody_rest.edit_distsearch_peer(
+                  search_peer.uri_base().replace("https://", ""), 'enable')
+      
+          def disable_distributed_search_peer(self, search_peer):
+              """
+              disable a distributed search peer
+      
+              :type search_peer: Puppet
+              :param search_peer: the specified distributed search peer
+              """
+              self.nobody_rest.edit_distsearch_peer(
+                  search_peer.uri_base().replace("https://", ""), 'disable')
+      
+          def quarantine_distributed_search_peer(self, search_peer):
+              """
+              quarantine a distributed search peer
+      
+              :type search_peer: Puppet
+              :param search_peer: the specified distributed search peer
+              """
+              self.nobody_rest.edit_distsearch_peer(
+                  search_peer.uri_base().replace("https://", ""), 'quarantine')
+      
+          def unquarantine_distributed_search_peer(self, search_peer):
+              """
+              unquarantine a distributed search peer
+      
+              :type search_peer: Puppet
+              :param search_peer: the specified distributed search peer
+              """
+              self.nobody_rest.edit_distsearch_peer(
+                  search_peer.uri_base().replace("https://", ""), 'unquarantine')
+      
+          def remove_distributed_search_peers(self, search_peers):
+              """
+              Remove distributed search peers
+      
+              :type search_peers: list
+              :param search_peers: the specified distributed search peers
+              """
+              for search_peer in search_peers:
+                  self.remove_distributed_search_peer(search_peer)
+      
+          def remove_distributed_search_peer(self, search_peer):
+              """
+              Remove distributed search peer
+      
+              :type search_peer: Puppet
+              :param search_peer: the specified distributed search peer
+              """
+              self.nobody_rest.delete_distsearch_peer(
+                  '{h}:{p}'.format(
+                      h=search_peer.splunkd_host(),
+                      p=search_peer.splunkd_port()),
+                  output_mode='json')
+      
+          def add_distributed_search_group(self, name, members):
+              """
+              Add distributed search group
+      
+              :type name: string
+              :param name: name of the distributed search group
+      
+              :type members: list of Puppets
+              :param members: search peers to be added to this group
+              """
+              data = [("member", "{h}:{p}".format(
+                      h=member.splunkd_host(),
+                      p=member.splunkd_port())) for member in members]
+              self.nobody_rest.create_distsearch_group(name=name, *data)
+      
+          def delete_distributed_search_group(self, name):
+              """
+              delete a distributed search group
+      
+              :type name: string
+              :param name: name of the distributed search group
+      
+              :type members: list of Puppets
+              :param members: search peers to be added to this group
+              """
+              self.nobody_rest.delete_distsearch_group(name)
+      
+          def wait_for_distributed_search_peers_up(
+                  self, timeout=TIMEOUT, frequency=FREQUENCY):
+              """
+              Wait for distributed search peers to be up.
+      
+              :type timeout: int
+              :param timeout: timeout specified
+      
+              :type frequency: int
+              :param frequency: frequency for checking
+              """
+              def check_distributed_search_peers_up():
+                  """
+                  Check distributed search peers up
+      
+                  :rtype: bool
+                  :return True if distributed search peers are up
+                  """
+                  self.logger.debug('Check if distributed search peers are up.')
+                  entries = json.loads(
+                      self.rest.get_all_distsearch_peer(
+                          output_mode='json')[1])['entry']
+      
+                  if not entries:
+                      return False
+      
+                  for entry in entries:
+                      content = entry['content']
+                      status = content['status']
+                      peer_name = content['peerName']
+                      if status.lower() != 'up':
+                          self.logger.debug(
+                              '{} is {}'.format(peer_name, status))
+                          return False
+      
+                  return True
+      
+              return poll_for_condition(
+                  check_distributed_search_peers_up,
+                  frequency=frequency, timeout=timeout,
+                  error_message='Failed to wait for distributed search peers up')
+      
+          def wait_for_distributed_search_peers_healthy(
+                  self, timeout=TIMEOUT, frequency=FREQUENCY):
+              """
+              Wait for distributed search peers to be healthy.
+      
+              :type timeout: int
+              :param timeout: timeout specified
+      
+              :type frequency: int
+              :param frequency: frequency for checking
+              """
+              def check_distributed_search_peers_healthy():
+                  """
+                  Check distributed search peers healthy
+      
+                  :rtype: bool
+                  :return True if distributed search peers are healthy
+                  """
+                  self.logger.debug('Check if distributed search peers are healthy.')
+                  entries = json.loads(
+                      self.rest.get_all_distsearch_peer(
+                          mode='extended', output_mode='json'
+                      )[1])['entry']
+      
+                  if not entries:
+                      return False
+      
+                  for entry in entries:
+                      content = entry['content']
+                      health_status = content['health_status']
+                      peer_name = content['peerName']
+                      if health_status.lower() != 'healthy':
+                          self.logger.debug(
+                              '{} is {}'.format(peer_name, health_status))
+                          return False
+      
+                  return True
+      
+              return poll_for_condition(
+                  check_distributed_search_peers_healthy,
+                  frequency=frequency, timeout=timeout,
+                  error_message='Failed to wait for distributed search peers '
+                                'healthy')
+      
+          def wait_for_indexes_searchable(
+                  self, index_names, peer_count=None,
+                  timeout=TIMEOUT, frequency=FREQUENCY):
+              """
+              After restart search head or indexer or create a new index,
+              need some time to wait for the index to be searchable
+      
+              :type index_names: str or tuple or list
+              :param index_names: index name or tuple/list of index names
+      
+              :type peer_count: int
+              :param peer_count: count of indexers which have the index,
+                                 defaults to all distributed search peers
+      
+              :type timeout: int
+              :param timeout: timeout specified
+      
+              :type frequency: int
+              :param frequency: frequency for checking
+              """
+              if not isinstance(index_names, (tuple, list)):
+                  index_names = [index_names]
+              peer_count = peer_count or len(self.distributed_search_peers)
+      
+              def check_indexes_searchable():
+                  """
+                  Check indexers are all up
+                  and index can be searchable on <peer_count> indexer(s)
+      
+                  :rtype: bool
+                  :return True if index searchable
+                  """
+                  self.logger.debug(
+                      'Check if index {} searchable.'.format(index_names))
+      
+                  index_count = 0
+                  for peer_name, content in self.distributed_search_peers.items():
+                      peer_status = content["status"]
+                      peer_searchable_indexes = content["searchable_indexes"]
+                      if peer_status.lower() != "up":
+                          self.logger.debug(
+                              '{} is {}'.format(peer_name, peer_status))
+                          return False
+                      for index_name in index_names:
+                          if index_name in peer_searchable_indexes:
+                              index_count += 1
+      
+                  return index_count == (peer_count * len(index_names))
+      
+              return poll_for_condition(
+                  check_indexes_searchable,
+                  frequency=frequency, timeout=timeout,
+                  error_message='Failed to wait for index {} searchable'.format(
+                      index_names))
+      
+          @property
+          def distributed_search_peers(self):
+              """
+              Gets distributed search peers info.
+      
+              :rtype: dict
+              :return: distributed search peers info
+              """
+              entries = json.loads(
+                  self.rest.get_all_distsearch_peer(
+                      output_mode='json')[1])['entry']
+              return {entry['name']: entry['content'] for entry in entries}
+      
+          def wait_for_bundle_replicated(
+                  self, original_dist_search_peers,
+                  timeout=TIMEOUT, frequency=FREQUENCY):
+              """
+              Wait for knowledge bundle to be replicated.
+      
+              :type original_dist_search_peers: dict
+              :param original_dist_search_peers: original dist search peers info
+      
+              :type timeout: int
+              :param timeout: timeout specified
+      
+              :type frequency: int
+              :param frequency: frequency for checking
+              """
+              original_bundle_versions = {
+                  key: value['bundle_versions']
+                  for key, value in original_dist_search_peers.items()}
+              self.logger.debug(
+                  'original_bundle_versions: {}'.format(original_bundle_versions))
+      
+              # run a simple search job with force bundle replication
+              _, cont = self.rest.create_job(
+                  search='search index=main | head 1',
+                  force_bundle_replication=True, output_mode='json')
+              sid = json.loads(cont)['sid']
+      
+              def wait_for_job_done():
+                  """
+                  Wait for job to be done
+                  """
+                  job = json.loads(self.rest.get_job(sid, output_mode='json')[1])
+                  return job['entry'][0]['content']['isDone']
+      
+              poll_for_condition(
+                  wait_for_job_done,
+                  error_message='Failed to wait for job to be done.')
+      
+              def check_bundle_replicated():
+                  """
+                  Check if knowledge bundle is replicated.
+                  """
+                  current_bundle_versions = {
+                      key: value['bundle_versions']
+                      for key, value in self.distributed_search_peers.items()}
+                  self.logger.debug(
+                      'current_bundle_versions: {}'.format(current_bundle_versions))
+                  return current_bundle_versions != original_bundle_versions
+      
+              poll_for_condition(
+                  check_bundle_replicated, frequency=frequency, timeout=timeout,
+                  error_message='Failed to wait for bundle to be replicated.')
+      
+    '''
+    linesHighlighted: []
+  }
+]
+isStarred: false
+isTrashed: false

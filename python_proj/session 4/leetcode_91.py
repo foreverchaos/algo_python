@@ -62,5 +62,5 @@ def decode_dynamic(nums):
 
 
 if __name__ == '__main__':
-    results = decode_dynamic('206')
+    results = decode_dynamic('220')
     print(results)

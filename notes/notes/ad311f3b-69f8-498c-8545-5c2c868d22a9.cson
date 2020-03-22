@@ -1,0 +1,23 @@
+createdAt: "2020-03-18T13:28:25.503Z"
+updatedAt: "2020-03-19T06:48:26.276Z"
+type: "MARKDOWN_NOTE"
+folder: "b52a7c0642d2c6d5f4b4"
+title: "K8S Network"
+tags: []
+content: '''
+  # K8S Network
+  - all containers can communicate with all other containers without NAT
+  - agents on a node (e.g. system daemons, kubelet) can communicate with all pods on that node
+  - pods in the host network of a node can communicate with all pods on all nodes without NAT
+  
+  ### serive network
+  ![QQ图片20200319144200.png](:storage\\ad311f3b-69f8-498c-8545-5c2c868d22a9\\79cc069c.png =800x400)
+  - see iptable
+  ```ruby
+  # see rule mapping for service ip
+  sudo iptables -L -v -n -t nat
+  ```
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

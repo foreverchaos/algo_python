@@ -1,0 +1,107 @@
+createdAt: "2020-03-21T08:48:46.684Z"
+updatedAt: "2020-03-21T09:07:12.115Z"
+type: "MARKDOWN_NOTE"
+folder: "b52a7c0642d2c6d5f4b4"
+title: "K8S PV/PVC (local PV)"
+tags: []
+content: '''
+  # K8S PV/PVC (local PV)
+  
+  >PV: a piece of storage in cluster that has been provisoned by an administrator. It's a resource in the cluster just like a node is a cluster resource. if pod has been deleted, PV stll alive
+  >
+  >PVC: a request for storage for PV, like pod consume node resource, PVC consume PV resource, PV and PVC is 1:1 matching
+  
+  - create a local persistentVolume
+  > define storageclass
+  ```yaml
+  kind: StorageClass
+  apiVersion: storage.k8s.io/v1
+  metadata:
+    name: local-storage
+  provisioner: kubernetes.io/no-provisioner
+  volumeBindingMode: WaitForFirstConsumer
+  ```
+  - create local PV
+  ```yaml
+  apiVersion: v1
+  kind: PersistentVolume
+  metadata:
+    name: example-pv
+  spec:
+    capacity:
+      storage: 5Gi
+    volumeMode: Filesystem
+    # only one node can attach this PV
+    accessModes:
+    - ReadWriteOnce
+    # Retain - manually reclaim
+    # Delete - delete all related volumn
+    persistentVolumeReclaimPolicy: Delete
+    # used to classify volumn standard
+    storageClassName: local-storage 
+    local:
+      path: /mnt/disks/vol1 
+    nodeAffinity:
+      required:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+            - k8s-node1
+  ```
+  - create PVC
+  ```yaml
+  kind: PersistentVolumeClaim
+  apiVersion: v1
+  metadata:
+    name: example-local-claim
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 5Gi
+    storageClassName: local-storage
+  ```
+  - create service/pod bound PV
+  ```yaml
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: test-pod
+    labels:
+      app: nginx-test
+  spec:
+    volumes:
+      - name: example-pv-storage
+        persistentVolumeClaim:
+         claimName: example-local-claim
+    containers:
+      - name: example-pv-container
+        image: nginx
+        ports:
+          - containerPort: 80
+            name: "http-server"
+        volumeMounts:
+          - mountPath: "/usr/share/nginx/html"
+            name: example-pv-storage
+  ---
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: service-pvc
+  spec:
+    type: NodePort
+    ports:
+    - port: 8080
+      targetPort: 80
+      protocol: TCP
+    selector:
+      app: nginx-test
+  
+  ```
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

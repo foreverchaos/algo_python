@@ -1,0 +1,63 @@
+createdAt: "2020-01-28T08:32:33.370Z"
+updatedAt: "2020-01-28T12:23:08.491Z"
+type: "MARKDOWN_NOTE"
+folder: "d38eb8d5dfbe6ecb1827"
+title: "Docker network"
+tags: []
+content: '''
+  # Docker network
+  
+  - Each containers has individual network namespace *172.17.0.2*
+  ```ruby
+  docker run -d --name my-busybox busybox /bin/sh -c "while true; do sleep 3600; done;"
+  
+  docker exec -it e1a5a3f84b78 /bin/sh
+  
+  ip a
+  
+  1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue qlen 1000
+      link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+      inet 127.0.0.1/8 scope host lo
+         valid_lft forever preferred_lft forever
+  2: tunl0@NONE: <NOARP> mtu 1480 qdisc noop qlen 1000
+      link/ipip 0.0.0.0 brd 0.0.0.0
+  3: ip6tnl0@NONE: <NOARP> mtu 1452 qdisc noop qlen 1000
+      link/tunnel6 00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00 brd 00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00
+  48: eth0@if49: <BROADCAST,MULTICAST,UP,LOWER_UP,M-DOWN> mtu 1500 qdisc noqueue
+      link/ether 02:42:ac:11:00:02 brd ff:ff:ff:ff:ff:ff
+      inet 172.17.0.2/16 brd 172.17.255.255 scope global eth0
+         valid_lft forever preferred_lft forever
+  ```
+  
+  - Docker network ls (bridge, host, none)
+  > Docker container network connected to bridge 
+  > through veth pair (container network namespace to docker0)
+  ```ruby
+  docker network inspect $(docker network ls -q -f driver=bridge)
+  
+   "Containers": {
+              "e1a5a3f84b78484a2ab7bd4e99a5749ed9e8804330368df13c04d68d77da4d58": {
+                  "Name": "my-busybox",
+                  "EndpointID": "4375effe5845f76a54ca413db183fcdc81df522d18ad9c73673b3ac17d2dc971",
+                  "MacAddress": "02:42:ac:11:00:02",
+                  "IPv4Address": "172.17.0.2/16",
+                  "IPv6Address": ""
+              }
+          },
+  ```
+  ![docker_network.png](:storage\\d972d18f-8cec-41eb-8867-ab68c8d211e4\\ae40d5bb.png =800x500)
+  
+  - Docker container link
+  > link two container, only my-busybox3 ping my-busybox using name
+  ```
+  docker run -it --rm --name my-busybox3 --link my-busybox busybox
+  / # ping my-busybox
+  PING my-busybox (172.17.0.2): 56 data bytes
+  64 bytes from 172.17.0.2: seq=0 ttl=64 time=0.047 ms
+  64 bytes from 172.17.0.2: seq=1 ttl=64 time=0.037 ms
+  ```
+  > [Another way to link containers](https://docker_practice.gitee.io/zh-cn/network/linking.html)
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

@@ -40,4 +40,4 @@ if __name__ == '__main__':
     arr = [30, 24, 5, 58, 18, 36, 12, 42, 39]
     arr1 = [4, 2, 1, 5, 6, 7, 11, 9]
     results = quick_sort_new(arr, 0, len(arr1) - 1)
-    print results
+    print(results)

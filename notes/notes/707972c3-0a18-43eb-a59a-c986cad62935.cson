@@ -1,0 +1,1245 @@
+createdAt: "2020-01-08T06:20:49.447Z"
+updatedAt: "2020-01-08T06:22:25.082Z"
+type: "SNIPPET_NOTE"
+folder: "c75bf4e7ed3c2027bb4a"
+title: "rip"
+tags: []
+description: '''
+  rip
+  
+'''
+snippets: [
+  {
+    linesHighlighted: []
+    name: "__init__.py"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      
+      from __future__ import absolute_import
+      import json
+      import httplib2
+      import six
+      import logging
+      import contextlib
+      from . import endpoints
+      import polling
+      import errno
+      import socket
+      from sharedtestutils.decorators import deprecated_by
+      from sharedtestutils.str_utils import normalize_to_unicode
+      from sharedtestutils.str_utils import normalize_to_str
+      
+      
+      TIMEOUT = 60
+      POLL_FREQUENCY = 0.5
+      
+      
+      class DownloadFail(Exception):
+          \'''
+          Unable to download exception
+          \'''
+          pass
+      
+      
+      class RESTConnectorReplacement(object):
+      
+          """
+          RESTConnectorReplacement is to shim in and replace the Helmut's REST
+          Connector interface.
+          """
+          HEADERS = {'content-type': 'text/xml; charset=utf-8'}
+          METHODS = ['GET', 'POST', 'PUT', 'DELETE']
+          SUCCESS = {'GET': '200', 'POST': '201', 'DELETE': '200', 'PUT': '200'}
+      
+          def __init__(self, username='admin', password='changeme',
+                       app='search', uri_base='https://localhost:8089',
+                       token=None):
+              """
+               Creates a new REST connector.
+      
+               The connector will logged in when created with default values
+      
+               :param splunk: The Splunk instance
+               :type splunk: L{helmut.splunk.Splunk}
+               :param username: The username to use. If None (default)
+                                L{Connector.DEFAULT_USERNAME} is used.
+               :type username: str
+               :param password: The password to use. If None (default)
+                                L{Connector.DEFAULT_PASSWORD} is used.
+               :type password: str
+               :param app: The app to use.This will construct namespace <user>:<app>
+               :type app: str
+      
+              """
+              self.logger = logging.getLogger('RESTConnectorReplacement')
+              self.uri_base = uri_base
+              self._username = normalize_to_str(username)
+              self._password = normalize_to_str(password)
+              self.namespace = '/' + self._username + '/' + str(app)
+              self._timeout = TIMEOUT
+              self._debug_level = 0
+              self._disable_ssl_certificate = True
+              self._follow_redirects = False
+              self._sessionkey = ''
+              self._token = token
+              httplib2.debuglevel = self._debug_level
+      
+          def make_request(self, method, uri, body=None, urlparam=None,
+                           use_sessionkey=False):
+              """
+              Make a HTTP request to an endpoint
+      
+              :type  method: string
+              :param method: HTTP valid methods: PUT, GET, POST, DELETE
+              :type  uri: string
+              :param uri: URI of the REST endpoint
+              :type  body: string or dictionary or a sequence of two-element tuples
+              :param body: the request body
+              :type  urlparam: string/ dictionary or a sequence of two-element tuples
+              :param urlparam: the URL parameters
+              :type  use_sessionkey: bool
+              :param use_sessionkey: toggle for using sessionkey or not
+              >>> conn.make_request('POST', '/services/receivers/simple',
+              urlparam={'host': 'foo'}, body="my event")
+      
+              """
+              if body is None:
+                  body = ''
+              if type(body) == dict:
+                  content_type = (
+                      self.HEADERS.get('Content-Type') or
+                      self.HEADERS.get('content-type'))
+                  if content_type == 'application/json':
+                      body = json.dumps(body)
+                  else:
+                      body = six.moves.urllib.parse.urlencode(
+                          dict([k, normalize_to_str(v)]
+                               for k, v in six.iteritems(body)))
+              if type(body) != str:
+                  # assuming items only come in tuple pairs
+                  body = [(item[0], normalize_to_str(item[1])) for item in body]
+                  body = six.moves.urllib.parse.urlencode(body)
+              if urlparam is None:
+                  urlparam = ''
+              if type(urlparam) != str:
+                  urlparam = six.moves.urllib.parse.urlencode(urlparam)
+              if urlparam != '':
+                  url = "%s%s?%s" % (self.uri_base, uri, urlparam)
+              else:
+                  url = "%s%s" % (self.uri_base, uri)
+      
+              service = httplib2.Http(
+                  timeout=self._timeout,
+                  disable_ssl_certificate_validation=self._disable_ssl_certificate)
+              service.follow_redirects = self._follow_redirects
+              service.add_credentials(self._username, self._password)
+      
+              if use_sessionkey:
+                  service.clear_credentials()
+                  self.update_headers('Authorization',
+                                      'Splunk %s' % self.sessionkey)
+              elif self._token:
+                  service.clear_credentials()
+                  self.update_headers('Authorization',
+                                      'Bearer %s' % self._token)
+              else:
+                  if not service.credentials:
+                      service.add_credentials(self._username, self._password)
+                  if 'Authorization' in self.HEADERS:
+                      self.HEADERS.pop('Authorization')
+              response, content = service.request(
+                  url, method, body=body, headers=self.HEADERS)
+      
+              self.logger.info("Request  => {r}".format(r={
+                  'method': method,
+                  'url': url,
+                  'body': body,
+                  'auth': '{u}:{p}'.format(u=self._username, p=self._password),
+                  'header': self.HEADERS
+              }))
+              self.logger.info("Response => {r}".format(r=response))
+              self.logger.debug(
+                  normalize_to_unicode("Content  => {c}".format(c=content)))
+      
+              return response, content
+      
+          def update_headers(self, key, value):
+              """
+              Update the headers with the new key-value. Update existing or add
+              new key values into the header.
+      
+              :type key: string
+              :param key: the header key
+      
+              :type value: string
+              :param value: the value for the key.
+      
+              """
+      
+              if key in self.HEADERS:
+                  self.HEADERS.pop(key)
+              self.HEADERS.update({key: value})
+      
+          @property
+          def timeout(self):
+              """
+              Getter for timeout attribute
+              :return: int, timeout value
+              """
+              return self._timeout
+      
+          @timeout.setter
+          def timeout(self, value):
+              """
+              Set timeout for request
+              :param value: int, timeout value
+              """
+              self._timeout = value
+              self.logger.info("Setting timeout value to: {}".format(value))
+      
+          @property
+          def sessionkey(self):
+              """
+              sessionkey getter for Splunk Authorization header token
+      
+              :return: string: sessionkey token
+              """
+              return self._sessionkey
+      
+          @sessionkey.setter
+          def sessionkey(self, value):
+              """
+              sessionkey setter for Splunk Authorization header token
+      
+              :type value: string
+              :param value: authorization token value
+              """
+              if self._sessionkey:
+                  self.logger.warning(
+                      ("Session key is already defined with the "
+                       "value: {sk_value}".format(sk_value=self._sessionkey)))
+      
+              self.logger.info(
+                  "Setting sessionkey value to: {sk_value}".format(sk_value=value))
+      
+              self._sessionkey = value
+      
+      
+      class RESTInPeace(object):
+      
+          \'''
+          Simple module to wrap REST endpoints into a consistent set of methods
+          Everything is accessed through servicesNS.
+          \'''
+      
+          # Please keep the key in singular form.
+          URIS = endpoints._URIS
+          # This list contains function-like URIs.
+          # Please keep the key in singular form.
+          FUNCTION_URIS = endpoints._FUNCTION_URIS
+      
+          # still hold for use in legacy code
+          SUCCESS = {'GET': '200', 'POST': '201', 'DELETE': '200', 'PUT': '200'}
+          # Http(s) Success value
+          SUCCESS_CODES = six.moves.range(200, 300)
+      
+          def __init__(self, helmut_rest_connector,
+                       user_namespace=None, app_namespace=None):
+              \'''
+              Pass in a logged-in helmut rest connector. Every call afterwards
+              will use this connector. Namespaces should be encapsulated inside
+              the connector.
+              \'''
+      
+              self.logger = logging.getLogger('RESTInPeace')
+              self.conn = helmut_rest_connector
+      
+              if user_namespace is not None and app_namespace is not None:
+                  self._user = user_namespace
+                  self._app = app_namespace
+              else:
+                  self._user, self._app = self.conn.namespace.strip('/').split('/')
+      
+              self.change_namespace(self._user, self._app)
+      
+          @property
+          def user(self):
+              """
+              get current user name
+              :rtype: str
+              :return: current user name
+              """
+              return self._user
+      
+          @property
+          def app(self):
+              """
+              get current app name
+              :rtype: str
+              :return: current app name
+              """
+              return self._app
+      
+          @contextlib.contextmanager
+          def headers(self, **headers):
+              """
+              Change the connection HEADERS in a context manager.
+      
+              :type headers: dict
+              :param headers: the header dict to use to make the REST calls inside
+                              this context.
+              """
+              original_header = self.conn.HEADERS
+              self.conn.HEADERS = headers
+              try:
+                  yield
+              finally:
+                  self.conn.HEADERS = original_header
+      
+          @contextlib.contextmanager
+          def auth(self, username, password):
+              """
+              Change the username and password credentials to make the REST call.
+              This will also change the namespace context as well using the
+              username specified and the current app namespace.
+      
+              :type username: string
+              :param username: the username of whom the credentions for
+                               subsequent calls, will be made user.
+      
+              :type password: string
+              :param password: the password for the username specified for splunkd
+                               login.
+      
+              """
+      
+              original_conn_user = self.conn._username
+              original_conn_password = self.conn._password
+              original_user = self._user
+              original_app = self._app
+      
+              self.conn._username = username
+              self.conn._password = password
+              self._user = self.conn._username
+              self.change_namespace(self._user, self._app)
+              try:
+                  yield
+              finally:
+                  self.conn._username = original_conn_user
+                  self.conn._password = original_conn_password
+                  self._user = original_user
+                  self._app = original_app
+                  self.change_namespace(self._user, self._app)
+      
+          @contextlib.contextmanager
+          def namespace(self, user, app):
+              """
+              Change the user/app namespace in context.
+      
+              :type user: string
+              :param user: username
+      
+              :type app: string
+              :param app: app id
+              """
+              original_user = self._user
+              original_app = self._app
+              self.change_namespace(user, app)
+              try:
+                  yield
+              finally:
+                  self.change_namespace(original_user, original_app)
+      
+          @contextlib.contextmanager
+          def timeout(self, timeout):
+              """
+              Change timeout in context
+      
+              :param timeout: int, timeout value
+              """
+              previous_timeout = self.conn.timeout
+              self.conn.timeout = timeout
+              try:
+                  yield
+              finally:
+                  self.conn.timeout = previous_timeout
+      
+          def change_namespace(self, user, app):
+              \'''
+              Change the user/app namespace for all the rest calls.
+              Note: This does NOT change the user making the rest calls.
+      
+              @rtype user: string
+              :param user: username
+      
+              @rtype app: string
+              :param app: app id
+              \'''
+              self._user = user
+              quoted_user = six.moves.urllib.parse.quote(normalize_to_str(user), '')
+              self._app = app
+      
+              for uri_name, uri_value in six.viewitems(self.URIS):
+                  final_uri_value = uri_value.format(u=quoted_user, a=self._app)
+                  self._add_endpoint(uri_name, final_uri_value)
+              for uri_name, uri_value in six.viewitems(self.FUNCTION_URIS):
+                  if "{u}" in uri_value and "{a}" in uri_value:
+                      final_uri_value = uri_value.format(u=quoted_user, a=self._app)
+                  else:
+                      final_uri_value = uri_value
+                  self._add_function_endpoint(uri_name, final_uri_value)
+      
+          def refresh_endpoints(self):
+              """
+              refresh all changes to the endpoints.
+              """
+              self.change_namespace(self._user, self._app)
+      
+          @deprecated_by('register_uri and refresh_endpoints')
+          def add_endpoint(self, uri_name, uri_value):
+              """
+              Creates generic create, edit, delete, check methods for the
+              given endpoint name and value.
+      
+              :type uri_name: string
+              :param uri_name: the name of the endpoint
+      
+              :type uri_value: string
+              :param uri_value: the uri for the endpoint
+              """
+              self._add_endpoint(uri_name, uri_value)
+      
+          def _add_endpoint(self, uri_name, uri_value):  # noqa: ignore=C901
+              \'''
+              Creates generic create, edit, delete, check methods for the
+              given endpoint name and value.
+      
+              :type uri_name: string
+              :param uri_name: the name of the endpoint
+      
+              :type uri_value: string
+              :param uri_value: the uri for the endpoint
+              \'''
+      
+              def gen_create(*args, **kwargs):
+                  \'''
+                  A generic 'post' method for the endpoint to create an object of
+                  that endpoint type.
+                  \'''
+                  if args:
+                      if kwargs:
+                          args = list(args) + list(kwargs.items())
+                      body = args
+                  else:
+                      body = kwargs
+      
+                  return self.conn.make_request('POST', uri_value, body=body)
+      
+              gen_create.__doc__ = \'''
+                  Create method for the '{ep}' endpoint.
+                  - uri: '{uri}'
+      
+                  :return: the return value from the make_request on the endpoint
+                  \'''.format(ep=uri_name, uri=uri_value)
+              gen_create.__name__ = 'create_{ep}'.format(ep=uri_name)
+              setattr(self, gen_create.__name__, gen_create)
+      
+              def gen_get(id_name, sub_endpoint='', *args, **kwargs):
+                  \'''
+                  A generic 'get' method for all the endpoints
+                  \'''
+                  id_name = normalize_to_str(id_name)
+      
+                  uri = "{uri}/{id}{sub_ep}".format(
+                      uri=uri_value,
+                      id=six.moves.urllib.parse.quote(id_name, safe=''),
+                      sub_ep=(sub_endpoint
+                              if (sub_endpoint == '' or
+                                  sub_endpoint.startswith('/'))
+                              else '/{s}'.format(s=sub_endpoint)))
+                  return self.conn.make_request('GET', uri, args, kwargs)
+      
+              gen_get.__doc__ = \'''
+                  Get method for the '{ep}' endpoint.
+                  - uri: '{uri}'
+      
+                  :type id_name: string
+                  :param id_name: the id of the object.
+      
+                  :type sub_endpoint: string
+                  :param sub_endpoint: child endpoint of the base endpoint
+      
+                  :return: the return value from the make_request on the endpoint
+                  \'''.format(ep=uri_name, uri=uri_value)
+              gen_get.__name__ = 'get_{ep}'.format(ep=uri_name)
+              setattr(self, gen_get.__name__, gen_get)
+      
+              def gen_reload(*args, **kwargs):
+                  \'''
+                  A generic 'reload' method for all the endpoints.
+                  This will hit the endpoint's _reload sub endpoint
+                  \'''
+                  uri = "{uri}/_reload".format(uri=uri_value)
+                  return self.conn.make_request('GET', uri, args, kwargs)
+      
+              gen_reload.__doc__ = \'''
+                  Reload method for the '{ep}' endpoint.
+                  - uri: '{uri}/_reload'
+                  - uses the '_reload' endpoint off the base endpoint regardless
+                    of the object.
+      
+                  Note: NOT all REST endpoints support this,
+                        please check your endpoint before attempting to do this.
+      
+                  :return: the return value from the make_request on the endpoint
+                  \'''.format(ep=uri_name, uri=uri_value)
+              gen_reload.__name__ = 'reload_{ep}'.format(ep=uri_name)
+              setattr(self, gen_reload.__name__, gen_reload)
+      
+              def gen_get_all(*args, **kwargs):
+                  \'''
+                  A generic 'get_all' method for all the endpoints.
+                  \'''
+                  return self.conn.make_request('GET', uri_value, args, kwargs)
+      
+              gen_get_all.__doc__ = \'''
+                  Get all method for the '{ep}' endpoint.
+                  - uri: '{uri}'
+      
+                  :type id_name: string
+                  :param id_name: the id of the object.
+      
+                  :return: the return value from the make_request on the endpoint
+                  \'''.format(ep=uri_name, uri=uri_value)
+              gen_get_all.__name__ = 'get_all_{ep}'.format(ep=uri_name)
+              setattr(self, gen_get_all.__name__, gen_get_all)
+      
+              def gen_edit(id_name, sub_endpoint='', urlparam=None, *args, **kwargs):
+                  \'''
+                  A generic 'post' method for a particular object of the endpoint
+                  \'''
+      
+                  if isinstance(id_name, six.text_type):
+                      id_name = id_name.encode('utf-8')
+      
+                  if args:
+                      if kwargs:
+                          args = list(args) + list(kwargs.items())
+                      body = args
+                  else:
+                      body = kwargs
+      
+                  uri = "{uri}/{id}{sub_ep}".format(
+                      uri=uri_value,
+                      id=six.moves.urllib.parse.quote(id_name, safe=''),
+                      sub_ep=(sub_endpoint
+                              if (sub_endpoint == '' or
+                                  sub_endpoint.startswith('/'))
+                              else '/{s}'.format(s=sub_endpoint)))
+      
+                  return self.conn.make_request(
+                      'POST', uri=uri, urlparam=urlparam, body=body)
+      
+              gen_edit.__doc__ = \'''
+                  Edit method for the '{ep}' endpoint.
+                  - uri: '{uri}'
+      
+                  :type id_name: string
+                  :param id_name: the id of the object.
+      
+                  :type sub_endpoint: string
+                  :param sub_endpoint: child endpoint of the base endpoint
+      
+                  :return: the return value from the make_request on the endpoint
+                  \'''.format(ep=uri_name, uri=uri_value)
+              gen_edit.__name__ = 'edit_{ep}'.format(ep=uri_name)
+              setattr(self, gen_edit.__name__, gen_edit)
+      
+              def gen_delete(id_name, sub_endpoint='', *args, **kwargs):
+                  \'''
+                  A generic 'delete' method for all the endpoints.
+                  \'''
+      
+                  if isinstance(id_name, six.text_type):
+                      id_name = id_name.encode('utf-8')
+      
+                  uri = "{uri}/{id}{sub_ep}".format(
+                      uri=uri_value,
+                      id=six.moves.urllib.parse.quote(id_name, safe=''),
+                      sub_ep=(sub_endpoint
+                              if (sub_endpoint == '' or
+                                  sub_endpoint.startswith('/'))
+                              else '/{s}'.format(s=sub_endpoint)))
+                  return self.conn.make_request('DELETE', uri, args, kwargs)
+      
+              gen_delete.__doc__ = \'''
+                  Delete method for the '{ep}' endpoint.
+                  - uri: '{uri}'
+      
+                  :type id_name: string
+                  :param id_name: the id of the object.
+      
+                  :type sub_endpoint: string
+                  :param sub_endpoint: child endpoint of the base endpoint
+      
+                  :return: the return value from the make_request on the endpoint
+                  \'''.format(ep=uri_name, uri=uri_value)
+              gen_delete.__name__ = 'delete_{ep}'.format(ep=uri_name)
+              setattr(self, gen_delete.__name__, gen_delete)
+      
+              def gen_check(id_name, sub_endpoint='', *args, **kwargs):
+                  \'''
+                  A generic 'check' method for an object of the endpoint.
+                  This basically does a 'get' and returns a boolean
+                  value if it was successful or not.
+                  \'''
+                  if not id_name:
+                      # invalid id_name, so we'll return False.
+                      return False
+      
+                  if isinstance(id_name, six.text_type):
+                      id_name = id_name.encode('utf-8')
+      
+                  if args:
+                      if kwargs:
+                          args = list(args) + list(kwargs.items())
+                      body = args
+                  else:
+                      body = kwargs
+      
+                  uri = "{uri}/{id}{sub_ep}".format(
+                      uri=uri_value,
+                      id=six.moves.urllib.parse.quote(id_name, safe=''),
+                      sub_ep=(sub_endpoint
+                              if (sub_endpoint == '' or
+                                  sub_endpoint.startswith('/'))
+                              else '/{s}'.format(s=sub_endpoint)))
+      
+                  response = self.conn.make_request('GET', uri, body=body)[0]
+                  return int(response['status']) in self.SUCCESS_CODES
+      
+              gen_check.__doc__ = \'''
+                  Check method for the '{ep}' endpoint.
+                  - uri: '{uri}'
+      
+                  :type id_name: string
+                  :param id_name: the id of the object.
+      
+                  :rtype: boolean
+                  :return: True if the object exists and False otherwise.
+                  \'''.format(ep=uri_name, uri=uri_value)
+              gen_check.__name__ = 'check_{ep}'.format(ep=uri_name)
+              setattr(self, gen_check.__name__, gen_check)
+      
+              def gen_wait_to_be_created(
+                      id_name, timeout=TIMEOUT, poll_frequency=POLL_FREQUENCY,
+                      *args, **kwargs):
+                  \'''
+                  Wait for the specific item to be created.
+      
+                  :type timeout: int
+                  :param timeout: the number in second to poll for.
+      
+                  :type poll_frequency: number
+                  :param poll_frequency: the number in seconds to wait between
+                                         each poll
+                  \'''
+      
+                  if isinstance(id_name, six.text_type):
+                      id_name = id_name.encode('utf-8')
+      
+                  if args:
+                      if kwargs:
+                          args = list(args) + list(kwargs.items())
+                      body = args
+                  else:
+                      body = kwargs
+      
+                  uri = "{uri}/{id}".format(
+                      uri=uri_value,
+                      id=six.moves.urllib.parse.quote(id_name, safe=''))
+      
+                  polling.poll_for_condition(
+                      lambda: int(self.conn.make_request(
+                          'GET', uri, body=body)[0]['status']) in self.SUCCESS_CODES,
+                      timeout=timeout,
+                      frequency=poll_frequency,
+                      error_message="failed to get entity {uri}".format(uri=uri))
+      
+              gen_wait_to_be_created.__doc__ = \'''
+                  Wait to be created method for the '{ep}' endpoint.
+                  - uri: '{uri}'
+      
+                  :type id_name: string
+                  :param id_name: the id of the object.
+      
+                  :type timeout: int
+                  :param timeout: the number in second to poll for.
+      
+                  :type poll_frequency: number
+                  :param poll_frequency: the number in seconds to wait between
+                                         each poll
+                  \'''.format(ep=uri_name, uri=uri_value)
+              gen_wait_to_be_created.__name__ = (
+                  'wait_for_{ep}_to_be_created'.format(ep=uri_name))
+              setattr(self, gen_wait_to_be_created.__name__, gen_wait_to_be_created)
+      
+              def gen_wait_to_be_deleted(
+                      id_name, timeout=TIMEOUT, poll_frequency=POLL_FREQUENCY,
+                      *args, **kwargs):
+                  \'''
+                  Wait for the specific item to be deleted.
+      
+                  :type timeout: int
+                  :param timeout: the number in second to poll for.
+      
+                  :type poll_frequency: number
+                  :param poll_frequency: the number in seconds to wait between
+                                         each poll
+                  \'''
+      
+                  if isinstance(id_name, six.text_type):
+                      id_name = id_name.encode('utf-8')
+      
+                  if args:
+                      if kwargs:
+                          args = list(args) + list(kwargs.items())
+                      body = args
+                  else:
+                      body = kwargs
+      
+                  uri = "{uri}/{id}".format(
+                      uri=uri_value,
+                      id=six.moves.urllib.parse.quote(id_name, safe=''))
+      
+                  polling.poll_for_condition(
+                      lambda: not int(self.conn.make_request(
+                          'GET', uri, body=body)[0]['status']) in self.SUCCESS_CODES,
+                      timeout=timeout,
+                      frequency=poll_frequency,
+                      error_message="still get entity {uri}".format(uri=uri))
+      
+              gen_wait_to_be_deleted.__doc__ = \'''
+                  Wait to be deleted method for the '{ep}' endpoint.
+                  - uri: '{uri}'
+      
+                  :type id_name: string
+                  :param id_name: the id of the object.
+      
+                  :type timeout: int
+                  :param timeout: the number in second to poll for.
+      
+                  :type poll_frequency: number
+                  :param poll_frequency: the number in seconds to wait between
+                                         each poll
+                  \'''.format(ep=uri_name, uri=uri_value)
+              gen_wait_to_be_deleted.__name__ = (
+                  'wait_for_{ep}_to_be_deleted'.format(ep=uri_name))
+              setattr(self, gen_wait_to_be_deleted.__name__, gen_wait_to_be_deleted)
+      
+          @deprecated_by('register_function_uri and refresh_endpoints')
+          def add_function_endpoint(self, uri_name, uri_value):
+              """
+              Creates generic run methods for the
+              given endpoint name and value.
+      
+              :type uri_name: string
+              :param uri_name: the name of the endpoint
+      
+              :type uri_value: string
+              :param uri_value: the uri for the endpoint
+              """
+              self._add_function_endpoint(uri_name, uri_value)
+      
+          def _add_function_endpoint(self, uri_name, uri_value):
+              \'''
+              Creates generic run methods for the
+              given endpoint name and value.
+      
+              :type uri_name: string
+              :param uri_name: the name of the endpoint
+      
+              :type uri_value: string
+              :param uri_value: the uri for the endpoint
+              \'''
+      
+              def gen_run(sub_endpoint='', *args, **kwargs):
+                  \'''
+                  Acting like calling a function, send GET request
+                  to the specific endpoint and return value from the make_request.
+      
+                  :type sub_endpoint: string
+                  :param sub_endpoint: child endpoint of the base endpoint
+      
+                  :return: the return value from the make_request on the endpoint
+                  \'''
+                  uri = "{uri}/{sub_ep}".format(
+                      uri=uri_value,
+                      sub_ep=(sub_endpoint
+                              if (sub_endpoint == '' or
+                                  sub_endpoint.startswith('/'))
+                              else '/{s}'.format(s=sub_endpoint)))
+      
+                  return self.conn.make_request('GET', uri, args, kwargs)
+      
+              gen_run.__doc__ = \'''
+                  Acting like calling a function, send GET request to the
+                  '{ep}' endpoint and return value from the make_request.
+                  - uri: '{uri}'
+      
+                  :type sub_endpoint: string
+                  :param sub_endpoint: child endpoint of the base endpoint
+      
+                  :return: the return value from the make_request on the endpoint
+                  \'''.format(ep=uri_name, uri=uri_value)
+              gen_run.__name__ = 'run_{ep}'.format(ep=uri_name)
+              setattr(self, gen_run.__name__, gen_run)
+      
+              def gen_execute(sub_endpoint='', urlparam=None, *args, **kwargs):
+                  \'''
+                  Acting like calling a function, send POST request
+                  to the specific endpoint and return value from the make_request.
+      
+                  :type sub_endpoint: string
+                  :param sub_endpoint: child endpoint of the base endpoint
+      
+                  :return: the return value from the make_request on the endpoint
+                  \'''
+      
+                  if args:
+                      if kwargs:
+                          args = list(args) + list(kwargs.items())
+                      body = args
+                  else:
+                      body = kwargs
+      
+                  uri = "{uri}/{sub_ep}".format(
+                      uri=uri_value,
+                      sub_ep=(sub_endpoint
+                              if (sub_endpoint == '' or
+                                  sub_endpoint.startswith('/'))
+                              else '/{s}'.format(s=sub_endpoint)))
+      
+                  return self.conn.make_request(
+                      'POST', uri=uri, urlparam=urlparam, body=body)
+      
+              gen_execute.__doc__ = \'''
+                  Acting like calling a function, send POST request to the
+                  '{ep}' endpoint and return value from the make_request.
+                  - uri: '{uri}'
+      
+                  :type sub_endpoint: string
+                  :param sub_endpoint: child endpoint of the base endpoint
+      
+                  :return: the return value from the make_request on the endpoint
+                  \'''.format(ep=uri_name, uri=uri_value)
+              gen_execute.__name__ = 'execute_{ep}'.format(ep=uri_name)
+              setattr(self, gen_execute.__name__, gen_execute)
+      
+          def restart(self, timeout=TIMEOUT, poll_frequency=POLL_FREQUENCY):
+              """
+              Restarts splunk using the splunkd endpoint. Will not work if
+              splunkd is not running for the obvious reasons.
+      
+              It will also poll until the server is backup.
+      
+              :type timeout: int
+              :param timeout: the number of seconds before we time out.
+      
+              :type poll_frequency: int
+              :param poll_frequency: the number of second between each poll.
+              """
+      
+              startup_time = (json.loads(self.run_info(output_mode='json')[1])
+                              ['entry'][0]['content']['startup_time'])
+              restart_resp, restart_cont = self.execute_restart(output_mode='json')
+      
+              if not int(restart_resp['status']) in self.SUCCESS_CODES:
+                  raise Exception(
+                      'Failed to successfully submit a restart request to Splunk.\\n'
+                      'Response: {}\\nContent: {}'.format(
+                          restart_resp, restart_cont))
+      
+              def is_restarted():
+                  """
+                  check whether restart is successful or not
+                  :return: return True is restart is successful,
+                  otherwise return False
+                  """
+                  try:
+                      response, content = self.run_info(output_mode='json')
+                      self.logger.info(
+                          'Restart polling wait on {s}'.format(s=self.conn.uri_base))
+                      if (int(response['status']) in self.SUCCESS_CODES and
+                              json.loads(content)['entry'][0]['content'][
+                                  'startup_time'] != startup_time):
+                          return True
+                      else:
+                          return False
+                  except (socket.error, six.moves.http_client.HTTPException) as err:
+                      self.logger.warn('[socket, http exception]Failed to check if '
+                                       'splunk is running: {}'.format(err))
+                      return False
+                  except Exception as err:
+                      if (getattr(err, 'errno', None) in [errno.ECONNREFUSED,
+                                                          errno.EHOSTDOWN,
+                                                          errno.ECONNRESET]):
+                          self.logger.warn(
+                              'Failed to check if splunk is running: {}'.format(err))
+                          return False
+                      raise
+      
+              polling.poll_for_condition(
+                  is_restarted, timeout=timeout, frequency=poll_frequency,
+                  ignore_exceptions=KeyError,
+                  error_message='Restart was unsuccessful')
+              self.logger.info(
+                  'Restart polling done on {s}'.format(s=self.conn.uri_base))
+      
+          def is_splunkd_running(self):
+              """
+              Checking to see if splunk is running by accessing the server_info.
+      
+              :rtype: boolean
+              :return: True if it's up and server_info is accessible and False if not
+              """
+              try:
+                  resp, _ = self.run_info()
+                  return bool(int(resp['status']) in self.SUCCESS_CODES)
+              except:
+                  return False
+      
+          def get_universal_forwarder_credentials(self):
+              """
+              Function to download Universal forwarder credentails from cloud stacks
+              to configure UF downloaded through tests
+      
+              :rtype: (response, content)
+              :return: the response and content of the REST call made to get the
+                       forwarder credentials.
+              """
+              uri = '/servicesNS/admin/splunkclouduf/static/splunkclouduf.spl'
+              try:
+                  return self.conn.make_request('GET', uri)
+              except:
+                  raise DownloadFail("Could not downlaod the app link")
+      
+    '''
+  }
+  {
+    name: "endpoint.py"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      
+      # Please keep the key in singular form.
+      
+      _URIS = {
+          'admin_bundles': '/servicesNS/{u}/{a}/admin/bundles',
+          'admin_search_head_bundles': (
+              '/servicesNS/{u}/{a}/admin/search-head-bundles'),
+          'admin_savedsearch': '/servicesNS/{u}/{a}/admin/savedsearch',
+          'alert_action': '/servicesNS/{u}/{a}/admin/alert_actions',
+          'app': '/servicesNS/{u}/{a}/apps',
+          'app_template': '/servicesNS/{u}/{a}/apps/apptemplates',
+          'app_deploy': '/servicesNS/{u}/{a}/apps/deploy',
+          'app_local': '/servicesNS/{u}/{a}/apps/local',
+          'app_remote': '/servicesNS/{u}/{a}/apps/remote/entriesbyid',
+          'automatic_lookup': '/servicesNS/{u}/{a}/data/props/lookups',
+          'auth_service': (
+              '/servicesNS/{u}/{a}/authentication/providers/services'),
+          'auth_splunk': '/servicesNS/{u}/{a}/authentication/providers/Splunk',
+          'auth_saml': '/servicesNS/{u}/{a}/authentication/providers/SAML',
+          'cacheman': '/servicesNS/{u}/{a}/admin/cacheman',
+          'calculated_field': '/servicesNS/{u}/{a}/data/props/calcfields',
+          'capabilities': '/servicesNS/{u}/{a}/authorization/capabilities',
+          'changepassword': '/servicesNS/{u}/{a}/authentication/changepassword',
+          'cloud_metrics':
+              '/services/cluster_blaster_transforms/sh_metric_transforms_manager',
+          'cloud_index':
+              '/servicesNS/{u}/{a}/cluster_blaster_indexes/sh_indexes_manager',
+          'cloud_sourcetype':
+              '/servicesNS/{u}/{a}/cluster_blaster_sourcetypes/'
+              'sh_sourcetypes_manager',
+          'cluster': '/servicesNS/{u}/{a}/cluster',
+          'cluster_config': '/servicesNS/{u}/{a}/cluster/config',
+          'cluster_peers': '/servicesNS/{u}/{a}/cluster/master/peers',
+          'cluster_config_config': '/servicesNS/{u}/{a}/cluster/config/config',
+          'cluster_master': '/servicesNS/{u}/{a}/cluster/master',
+          'cluster_master_buckets': '/servicesNS/{u}/{a}/cluster/master/buckets',
+          'cluster_master_generation': (
+                  '/servicesNS/{u}/{a}/cluster/master/generation/master'),
+          'cluster_master_info': '/servicesNS/{u}/{a}/cluster/master/info',
+          'cluster_master_status': '/servicesNS/{u}/{'
+                                   'a}/cluster/master/status',
+          'cluster_searchhead': '/servicesNS/{u}/{a}/cluster/searchhead',
+          'cluster_slave': '/servicesNS/{u}/{a}/cluster/slave',
+          'collection': '/servicesNS/{u}/{a}/storage/collections',
+          'collection_config': '/servicesNS/{u}/{a}/storage/collections/config',
+          'collection_data': '/servicesNS/{u}/{a}/storage/collections/data',
+          'concurrency_scheduler': '/services/search/concurrency-settings/scheduler',
+          'concurrency_setting': '/servicesNS/{u}/{a}/search/concurrency-settings',
+          'config': '/servicesNS/{u}/{a}/configs',
+          'conf_authorize': '/servicesNS/{u}/{a}/configs/conf-authorize',
+          'conf_checklist': '/servicesNS/{u}/{a}/configs/conf-checklist',
+          'conf_event_renderer': (
+              '/servicesNS/{u}/{a}/configs/conf-event_renderers'),
+          'conf_macros': '/servicesNS/{u}/{a}/configs/conf-macros',
+          'conf_metric_rollup': '/servicesNS/{u}/{a}/configs/conf-metric_rollups',
+          'conf_metric_alert': '/servicesNS/{u}/{a}/configs/conf-metric_alerts',
+          'conf_saved_searches': (
+              '/servicesNS/{u}/{a}/configs/conf-savedsearches'),
+          'conf_transform': (
+              '/servicesNS/{u}/{a}/configs/conf-transforms'),
+          'conf_outputs': (
+              '/servicesNS/{u}/{a}/configs/conf-outputs'),
+          'data_archive_flag': '/services/data_archive/sh_archive_manager',
+          'datamodel': '/servicesNS/{u}/{a}/datamodel/model',
+          'datamodel_generate': '/servicesNS/{u}/{a}/datamodel/generate',
+          'datamodel_acceleration': '/servicesNS/{u}/{a}/datamodel/acceleration',
+          'datamodel_report': '/servicesNS/{u}/{a}/datamodel/report',
+          'datamodel_pivot': '/servicesNS/{u}/{a}/datamodel/pivot',
+          'deployment_client_config': (
+              '/servicesNS/{u}/{a}/deployment/client/config'),
+          'deployment_server_class': (
+              '/servicesNS/{u}/{a}/deployment/server/serverclasses'),
+          'deployment_server_config': (
+              '/servicesNS/{u}/{a}/deployment/server/config'),
+          'deployment_server_client': (
+              '/servicesNS/{u}/{a}/deployment/server/clients'),
+          'deployment_server_application': (
+              '/servicesNS/{u}/{a}/deployment/server/applications'),
+          'dimension': '/servicesNS/{u}/{a}/catalog/metricstore/dimensions',
+          'dmc': '/servicesNS/{u}/{a}/dmc',
+          'dmc_app': '/servicesNS/{u}/{a}/dmc/apps',
+          'dmc_app_create': '/servicesNS/{u}/{a}/dmc/apps-create',
+          'dmc_app_discover': '/servicesNS/{u}/{a}/dmc/apps-discover',
+          'dmc_app_install': '/servicesNS/{u}/{a}/dmc/apps-install',
+          'dmc_app_install_search': '/servicesNS/{u}/{a}/dmc/apps-install/search',
+          'dmc_app_manageable': '/servicesNS/{u}/{a}/dmc/apps-manageable',
+          'dmc_apps_meta': '/servicesNS/{u}/{a}/dmc/apps-meta/installation_graph',
+          'dmc_audit': '/servicesNS/{u}/{a}/dmc/audit',
+          'dmc_changes': '/servicesNS/{u}/{a}/dmc/changes',
+          'dmc_deploy': '/servicesNS/{u}/{a}/dmc/deploy',
+          'dmc_group': '/servicesNS/{u}/{a}/dmc/groups',
+          'dmc_http': '/servicesNS/{u}/{a}/dmc/config/inputs/__indexers/http',
+          'dmc_http_inputs': '/servicesNS/{u}/{a}/dmc/config/inputs',
+          'dmc_info': '/servicesNS/{u}/{a}/dmc/info',
+          'dmc_lock': '/servicesNS/{u}/{a}/dmc/deploy/lock',
+          'dmc_package': '/servicesNS/{u}/{a}/dmc/packages',
+          'dmc_server': '/servicesNS/{u}/{a}/configs/conf-server/dmc',
+          'dmc_task': '/servicesNS/{u}/{a}/dmc/tasks',
+          'dmc_topologies': '/servicesNS/{u}/{a}/dmc/topologies',
+          'duo_mfa': '/servicesNS/{u}/{a}/admin/Duo-MFA',
+          'distsearch_bundle_replication_files': (
+              '/servicesNS/{u}/{a}/search/distributed/bundle-replication-files'),
+          'distsearch_bundle': '/servicesNS/{u}/{a}/search/distributed/bundle',
+          'distsearch_peer': '/servicesNS/{u}/{a}/search/distributed/peers',
+          'distsearch_group': '/servicesNS/{u}/{a}/search/distributed/groups',
+          'eventtype': '/servicesNS/{u}/{a}/saved/eventtypes',
+          'fired_alert': '/servicesNS/{u}/{a}/alerts/fired_alerts',
+          'field': '/servicesNS/{u}/{a}/search/fields',
+          'field_alias': '/servicesNS/{u}/{a}/data/props/fieldaliases',
+          'field_extraction': '/servicesNS/{u}/{a}/data/props/extractions',
+          'fshpassword': '/servicesNS/{u}/{a}/storage/fshpasswords',
+          'fvtag': '/servicesNS/{u}/{a}/saved/fvtags',
+          'health_config': '/services/server/health-config',
+          'health_splunkd': '/services/server/health/splunkd',
+          'distributed_health_endpoint': (
+              '/servicesNS/{u}/{a}/server/health/deployment'),
+          'distributed_health_endpoint_detail': (
+              '/servicesNS/{u}/{a}/server/health/deployment/detail'),
+          'distributed_health_endpoint_local': (
+              '/servicesNS/{u}/{a}/server/health/splunkd/local'),
+          'health': '/servicesNS/{u}/{a}/cluster/master/health',
+          'httpauth_token': '/servicesNS/{u}/{a}/authentication/httpauth-tokens',
+          'http_input': '/servicesNS/{u}/{a}/data/inputs/http',
+          'index': '/servicesNS/{u}/{a}/data/indexes',
+          'indexer_discovery': '/servicesNS/{u}/{a}/indexer_discovery',
+          'input': '/servicesNS/{u}/{a}/data/inputs',
+          'input_monitor': '/servicesNS/{u}/{a}/data/inputs/monitor',
+          'input_oneshot': '/servicesNS/{u}/{a}/data/inputs/oneshot',
+          'input_script': '/servicesNS/{u}/{a}/data/inputs/script',
+          'input_tcp_cooked': '/servicesNS/{u}/{a}/data/inputs/tcp/cooked',
+          'input_tcp_raw': '/servicesNS/{u}/{a}/data/inputs/tcp/raw',
+          'input_udp': '/servicesNS/{u}/{a}/data/inputs/udp',
+          'input_eventlog': (
+              '/servicesNS/{u}/{a}/data/inputs/win-event-log-collections'),
+          'input_regmon': '/servicesNS/{u}/{a}/data/inputs/WinRegMon',
+          'input_perfmon': '/servicesNS/{u}/{a}/data/inputs/win-perfmon',
+          'input_hostmon': '/servicesNS/{u}/{a}/data/inputs/WinHostMon',
+          'input_netmon': '/servicesNS/{u}/{a}/data/inputs/WinNetMon',
+          'input_admon': '/servicesNS/{u}/{a}/data/inputs/ad',
+          'input_printmon': '/servicesNS/{u}/{a}/data/inputs/WinPrintMon',
+          'job': '/servicesNS/{u}/{a}/search/jobs',
+          'kvstore_status': '/servicesNS/{u}/{a}/kvstore/status',
+          'ldap_strategy': '/servicesNS/{u}/{a}/authentication/providers/LDAP',
+          'license': '/servicesNS/{u}/{a}/licenser/licenses',
+          'licenser': '/servicesNS/{u}/{a}/licenser',
+          'licenser_group': '/servicesNS/{u}/{a}/licenser/groups',
+          'licenser_pool': '/servicesNS/{u}/{a}/licenser/pools',
+          'lookup': '/servicesNS/{u}/{a}/data/props/lookups',
+          'lookup_table_file': '/servicesNS/{u}/{a}/data/lookup-table-files',
+          'macro': '/servicesNS/{u}/{a}/admin/macros',
+          'message': '/servicesNS/{u}/{a}/messages',
+          'message_conf': '/servicesNS/{u}/{a}/admin/messages-conf',
+          'metric_alert': '/servicesNS/{u}/{a}/alerts/metric_alerts',
+          'metric_schema': '/servicesNS/{u}/{a}/data/transforms/metric-schema',
+          'model': '/servicesNS/{u}/{a}/data/models/',
+          'navigation': '/servicesNS/{u}/{a}/data/ui/nav',
+          'ntag': '/servicesNS/{u}/{a}/saved/ntags',
+          'panel': '/servicesNS/{u}/{a}/data/ui/panels',
+          'password': '/servicesNS/{u}/{a}/storage/passwords',
+          'property': '/servicesNS/{u}/{a}/properties',
+          'role': '/servicesNS/{u}/{a}/authorization/roles',
+          'rollup': '/servicesNS/{u}/{a}/catalog/metricstore/rollup',
+          # only simple and stream available, and only edit method works.
+          'receiver': '/services/receivers',
+          'replication': '/servicesNS/{u}/{a}/replication',
+          'rsa_mfa': '/servicesNS/{u}/{a}/admin/Rsa-MFA',
+          's2_bucket': (
+              '/servicesNS/{u}/{a}/configs/conf-indexes/volume%3Asplunkcloud_vol'),
+          's3_bucket_prefix': '/servicesNS/{u}/{a}/s3_bucket_prefix',
+          # please use auth_saml instead of saml_auth, no admin/SAML-auth in REST Doc
+          'saml_auth': '/servicesNS/{u}/{a}/admin/SAML-auth',
+          'saml_group': '/servicesNS/{u}/{a}/admin/SAML-groups',
+          'saml_user_role_map': '/servicesNS/{u}/{a}/admin/SAML-user-role-map',
+          'saved_search': '/servicesNS/{u}/{a}/saved/searches',
+          'saved_bookmark_monitor_console': (
+              '/servicesNS/{u}/{a}/saved/bookmarks/monitoring_console'),
+          'scheduled_view': '/servicesNS/{u}/{a}/scheduled/views',
+          'search': '/servicesNS/{u}/{a}/search',
+          'search_command': '/servicesNS/{u}/{a}/admin/commandsconf',
+          'search_concurrency': (
+              '/servicesNS/{u}/{a}/server/status/limits/search-concurrency'),
+          'search_head_cluster': '/servicesNS/{u}/{a}/shcluster',
+          'search_head_cluster_bootstrap': (
+              '/servicesNS/{u}/{a}/shcluster/member/consensus/default/'
+              'bootstrap'),
+          'search_head_cluster_config': (
+              '/servicesNS/{u}/{a}/shcluster/config/config'),
+          'search_head_cluster_status': (
+              '/servicesNS/{u}/{a}/shcluster/status'),
+          'self_storage_location': (
+              '/servicesNS/{u}/{a}/configs/conf-self-storage-locations'),
+          'server': '/servicesNS/{u}/{a}/server',
+          'server_logger': '/servicesNS/{u}/{a}/server/logger',
+          'server_config': '/servicesNS/{u}/{a}/configs/conf-server',
+          'distsearch_config': '/servicesNS/{u}/{a}/configs/conf-distsearch',
+          'server_settings': '/servicesNS/{u}/{a}/server/settings',
+          'splunk_auth': '/servicesNS/{u}/{a}/admin/Splunk-auth',
+          'sourcetype': '/servicesNS/{u}/{a}/saved/sourcetypes',
+          'sourcetype_rename': '/servicesNS/{u}/{a}/saved/sourcetype-rename',
+          'tag': '/servicesNS/{u}/{a}/search/tags',
+          'tcp_output_server': '/servicesNS/{u}/{a}/data/outputs/tcp/server',
+          'tcp_output_group': '/servicesNS/{u}/{a}/data/outputs/tcp/group',
+          'telemetry': '/servicesNS/{u}/{a}/telemetry',
+          'time': '/servicesNS/{u}/{a}/data/ui/times',
+          'token': '/servicesNS/{u}/{a}/authorization/tokens',
+          'transforms_extraction': (
+              '/servicesNS/{u}/{a}/data/transforms/extractions'),
+          'transforms_lookup': '/servicesNS/{u}/{a}/data/transforms/lookups',
+          'transparent_summarization': '/servicesNS/{u}/{a}/admin/summarization',
+          'user': '/servicesNS/{u}/{a}/authentication/users',
+          'ui_manager': '/servicesNS/{u}/{a}/data/ui/manager',
+          'ui_pref': '/servicesNS/{u}/{a}/data/ui/prefs',
+          'ui_tour': '/servicesNS/{u}/{a}/data/ui/ui-tour',
+          'user_pref': '/servicesNS/{u}/{a}/admin/user-prefs',
+          'view': '/servicesNS/{u}/{a}/data/ui/views',
+          'viewstate': '/servicesNS/{u}/{a}/data/ui/viewstates',
+          'vix_index': '/servicesNS/{u}/{a}/data/vix-indexes',
+          'vix_provider': '/servicesNS/{u}/{a}/data/vix-providers',
+          'workflow_action': '/servicesNS/{u}/{a}/data/ui/workflow-actions',
+          'workloads_pools': '/servicesNS/{u}/{a}/workloads/pools',
+          'workloads_rules': '/servicesNS/{u}/{a}/workloads/rules',
+          'workloads_status': '/servicesNS/{u}/{a}/workloads/status',
+          'workloads_config': '/servicesNS/{u}/{a}/workloads/config',
+          'workloads_categories': '/servicesNS/{u}/{a}/workloads/categories',
+      }
+      # This list contains function-like URIs.
+      # Please keep the key in singular form.
+      _FUNCTION_URIS = {
+          'dmc_packages_upload_login': '/servicesNS/{u}/{a}/dmc/packages-upload:login',
+          'generate_regex': '/servicesNS/{u}/{a}/field_extractor/generate_regex',
+          'restart': '/servicesNS/{u}/{a}/server/control/restart',
+          'info': '/services/server/info',
+          'services_reload': '/servicesNS/{u}/{a}/authentication/providers/services/_reload',
+          'shcluster_rolling_restart': ('/services/shcluster/captain/control/'
+                                        'default/restart'),
+          'shcluster_config': '/services/shcluster/config',
+          'server_status_resource': '/services/server/status/resource-usage',
+          'apply_cluster_bundle': ('/servicesNS/{u}/{a}/cluster/master/'
+                                   'control/default/apply'),
+          'cluster_master_rolling_restart': ('/servicesNS/{u}/{a}/cluster/'
+                                             'master/control/control/restart'),
+          'cluster_master_rollback': ('/servicesNS/{u}/{a}/cluster/'
+                                      'master/control/control/rollback'),
+          'cluster_master_control': '/servicesNS/{u}/{a}/cluster/master/'
+                                    'control/control',
+          'token_settings': '/servicesNS/{u}/{a}/admin/token-auth/tokens_auth',
+          'login': '/services/auth/login',
+          'search_head_cluster_transfer_captaincy':
+              '/services/shcluster/member/consensus/foo/transfer_captaincy',
+      }
+      
+      
+      class URINameException(Exception):
+      
+          """
+          URI name exception
+          """
+          pass
+      
+      
+      def register_uri(uri_name, uri_value):
+          """
+          register uri_name with generic create, edit, delete, check, get, get_all,
+           methods for the given endpoint name and value.
+      
+          take saved_search uri_name (uri_value is /servicesNS/{u}/{a}/saved/searches
+          ) for an example, it generates following rest
+          methods: [create_saved_search, reload_saved_search, get_saved_search,
+          edit_saved_search, delete_saved_search, get_all_saved_search,
+          check_saved_search, wait_for_saved_search_to_be_created,
+          wait_for_saved_search_to_be_deleted]
+      
+          :type uri_name: string
+          :param uri_name: the name of the uri
+      
+          :type uri_value: string
+          :param uri_value: the uri for the endpoint
+          """
+          if uri_name in _URIS:
+              raise URINameException('key {} already exists'.format(uri_name))
+          _URIS.update({uri_name: uri_value})
+      
+      
+      def register_function_uri(uri_name, uri_value):
+          """
+          register uri_name with generic run, execute methods for the
+          given endpoint name and value.
+      
+          take restart uri_name for an example, it generates following rest methods:
+          [run_restart (use http get), execute_restart (use http post)]
+      
+          :type uri_name: string
+          :param uri_name: the name of the uri
+      
+          :type uri_value: string
+          :param uri_value: the uri for the endpoint
+          """
+          if uri_name in _FUNCTION_URIS:
+              raise URINameException('key {} already exists'.format(uri_name))
+          _FUNCTION_URIS.update({uri_name: uri_value})
+      
+    '''
+    linesHighlighted: []
+  }
+]
+isStarred: false
+isTrashed: false

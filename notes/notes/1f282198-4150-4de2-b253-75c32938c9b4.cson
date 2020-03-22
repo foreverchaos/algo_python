@@ -1,0 +1,34 @@
+createdAt: "2020-03-22T10:07:05.062Z"
+updatedAt: "2020-03-22T10:15:42.187Z"
+type: "MARKDOWN_NOTE"
+folder: "b52a7c0642d2c6d5f4b4"
+title: "K8S daemonSet"
+tags: []
+content: '''
+  # K8S daemonSet
+  - make sure all or some node will run a pod
+  - used for some monitoring app (prometheus node exporter)
+  ```yaml
+  apiVersion: apps/v1   # 1.9.0 之前的版本使用 apps/v1beta2，可通过命令 kubectl api-versions 查看
+  kind: DaemonSet
+  metadata:
+    name: deamonset-example
+  spec:
+    selector:      #定义标签选择器
+      matchLabels:
+        app: web-server
+    template:      #这里Pod的定义
+      metadata:
+        labels:    #Pod的label
+          app: web-server
+      spec:        # 指定该资源的内容  
+        containers:  
+        - name: nginx      #容器的名字  
+          image: nginx:1.12.1  #容器的镜像地址    
+          ports:  
+          - containerPort: 80  #容器对外的端口
+  ```
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

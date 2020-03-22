@@ -1,0 +1,132 @@
+createdAt: "2020-01-27T07:30:18.423Z"
+updatedAt: "2020-01-29T08:37:48.114Z"
+type: "MARKDOWN_NOTE"
+folder: "d38eb8d5dfbe6ecb1827"
+title: "Docker file"
+tags: []
+content: '''
+  # Docker file
+  
+  - Dockerfile structure
+  - 每条指令都会创建一个新的镜像层，并对镜像进行提交
+  ```ruby
+  # scratch is meta image in docker
+  FROM scratch
+  
+  # if below cmd added in the last
+  CMD ["/bin/bash"]
+  # we don' need /bin/bash below
+  docker run -it centos /bin/bash
+  ```
+  
+  - docker file cmd
+  ```ruby
+  # Indicate from which base image
+  FROM [base image]
+  
+  # image maintainer and email
+  MAINTAINER Louis <foreverchaos@sina.com>
+  
+  # commands which needs running in image building
+  RUN grounpadd -r redis && useradd -r -g redis redis
+  
+  # expose port from container to outside
+  EXPOSE 5678
+  
+  # set ENV var
+  ENV MY_PATH /usr/mytest
+  
+  # sets the working directory for any RUN, CMD, ENTRYPOINT, COPY and ADD instructions
+  WORKDIR $MY_PATH
+  
+  # ADD means copy and unzip
+  ADD centos-7-docker.tar.xz /
+  
+  # copy file src to dest
+  COPY src dest
+  COPY ['src', 'dest']
+  
+  # define a command when docker run
+  # There can only be one CMD instruction in a Dockerfile. If you list more than one CMD then only the last CMD will take effect.
+  CMD ["executable","param1","param2"] (exec form, this is the preferred form)
+  CMD ["param1","param2"] (as default parameters to ENTRYPOINT)
+  CMD command param1 param2 (shell form)
+  
+  ENTRYPOINT
+  
+  # The ONBUILD instruction adds to the image a trigger instruction to be executed at a later time, 
+  # when the image is used as the base for another build. The trigger will be executed in the context of the downstream build, 
+  # as if it had been inserted immediately after the FROM instruction in the downstream Dockerfile.
+  ONBUILD
+  ```
+  - example 1, install vim and ifconfig into centos and build
+  ```
+  FROM centos
+  MAINTAINER louis<louis@sina.com>
+  
+  ENV mypath /tmp
+  WORKDIR $mypath
+  
+  RUN yum -y install vim
+  RUN yum -y install net-tools
+  
+  EXPOSE 80
+  
+  CMD echo $myptah
+  CMD echo "success-----------ok"
+  CMD /bin/bash
+  ```
+  > use docker history to see build step
+  ```
+  docker history mycentos:1.2
+  ```
+  
+  - CMD & ENTRYPOINT
+  ```ruby
+  # the last CMD in tomcat is CMD ["catalina.sh", "run"]
+  docker run -it -P tomcat ls -l
+  # the above cmd will ad "ls -l" into dockerfile
+  CMD ["catalina.sh", "run"]
+  CMD ls -l
+  # then ["catalina.sh", "run"] will be replaced, 
+  # tomcat will not be up
+  
+  # ENTRYPOINT
+  FROM centos
+  RUN yum install -y curl
+  ENTRYPOINT ["curl", "-s", "https://ip.cn"]
+  
+  # if you add '-i' when you run container
+  # then run ENTRYPOINT ["curl", "-s", "https://ip.cn", "-i"]
+  
+  louis@DESKTOP-G2IG0SK:~/my_docker_file$ docker run -it centos_myip -i
+  HTTP/2 200
+  date: Tue, 28 Jan 2020 05:44:35 GMT
+  content-type: application/json; charset=UTF-8
+  set-cookie: __cfduid=df4ca0c08e124118876465f8f9c399a321580190275; expires=Thu, 27-Feb-20 05:44:35 GMT; path=/; domain=.ip.cn; HttpOnly; SameSite=Lax
+  cf-cache-status: DYNAMIC
+  expect-ct: max-age=604800, report-uri="https://report-uri.cloudflare.com/cdn-cgi/beacon/expect-ct"
+  server: cloudflare
+  cf-ray: 55c0a7c5fafe98ff-LAX
+  ```
+  
+  - ONBUILD
+  Base image
+  > **onbuild_dir** will not be created when running base image
+  ```
+  FROM centos
+  MAINTAINER hello
+  ONBUILD RUN mkdir onbuild_dir
+  ```
+  
+  inherited image
+  > **onbuild_dir** will be created when running son image
+  ```
+  FROM base_centos
+  CMD /bin/bash
+  ```
+  - [Dockerfile multistage build](https://docker_practice.gitee.io/zh-cn/image/multistage-builds/)
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

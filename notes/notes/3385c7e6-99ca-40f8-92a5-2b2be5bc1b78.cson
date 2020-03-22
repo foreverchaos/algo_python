@@ -1,0 +1,35 @@
+createdAt: "2020-03-20T04:09:48.954Z"
+updatedAt: "2020-03-20T04:53:45.568Z"
+type: "MARKDOWN_NOTE"
+folder: "b52a7c0642d2c6d5f4b4"
+title: "K8S service discovery"
+tags: []
+content: '''
+  # K8S service discovery
+  - DNS
+  - Environment Variable
+  
+  ### DNS
+  dns add-on
+  ```ruby
+  vagrant@k8s-master:~$ kubectl get pod --all-namespaces
+  NAMESPACE              NAME                                         READY   STATUS    RESTARTS   AGE
+  kube-system            coredns-6955765f44-9nzhh                     1/1     Running   5          39h
+  kube-system            coredns-6955765f44-pvbwm                     1/1     Running   5          39h
+  
+  vagrant@k8s-master:~$ kubectl get svc --all-namespaces
+  NAMESPACE              NAME                        TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                  AGE
+  default                kubernetes                  ClusterIP   10.96.0.1        <none>        443/TCP                  39h
+  kube-system            kube-dns                    ClusterIP   10.96.0.10       <none>        53/UDP,53/TCP,9153/TCP   39h
+  ```
+  > dns service will parse service name of ip, which could be communicated using service name
+  
+  ### ENV
+  ```ruby
+  # list env for pod
+  kubectl exec <pod> env
+  ```
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

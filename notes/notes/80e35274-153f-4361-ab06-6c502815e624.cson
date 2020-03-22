@@ -1,0 +1,109 @@
+createdAt: "2020-02-01T06:20:15.192Z"
+updatedAt: "2020-02-01T11:44:21.660Z"
+type: "MARKDOWN_NOTE"
+folder: "805110773a610f5a4597"
+title: "Jinja2"
+tags: []
+content: '''
+  # Jinja2
+  
+  - templates
+  ```html
+  <html lang="en">
+  <head>
+      <meta charset="utf-8">
+      <title>{{ user.username }}'s Watchlist</title>
+  </head>
+  <body>
+      <a href="{{ url_for('index') }}">&larr; Return</a>
+      <h2>{{ user.username }}</h2>
+      {% if user.bio %}
+          <i>{{ user.bio }}</i>
+      {% else %}
+          <i>This user has not provided a bio</i>
+      {% endif%}
+      <h5>{{ user.username }}'s Watchlist ({{ movies|length }}):</h5>
+      <ul>
+          {% for movie in movies %}
+              <li>{{ movie.name }} - {{ movie.year }}</li>
+          {% endfor %}
+      </ul>
+  </body>
+  </html>
+  ```
+  - template context: could be used into html template
+  ```python
+  @app.context_processor
+  def inject_foo():
+     foo = 'I am foo.'
+     return dict(foo=foo)
+  ```
+  - self-defined global
+  ```python
+  @app.template_global()
+  def bar():
+     return 'i am bar'
+  
+  # another way
+  app.add_template_global(your_globle_function)
+  ```
+  - filter
+  ```python
+  {{ name|title}} = name.title()
+  {{ movies|lenght}} = len(movies) 
+  
+  {% filter upper %}
+    This text becomes uppercase
+  {% endfilter %}
+  
+  # multiple filter
+  <hl>Hello, ({ name|default('stranger')|title })!</hl>
+  ```
+  > self-defined filter
+  ```python
+  @app.template_filter()
+  def musical(s):
+    return s + 'test'
+  
+  # usage
+  {{ name|musical}}
+  ```
+  - Flask Test
+  ```python
+  # number is a Test
+  { % if age is number %}
+  
+  @app.template_test()
+  def baz(n):
+    return n == 'baz'
+  ```
+  - static file
+  ```html
+  <img src="{{ url_for('static', filename='abc.jpg') }}" width='50'>
+  
+  ```
+  - flash messages
+  ```python
+  @app.route('/flash')
+  def just_flash():
+      flash('I am flash, who is looking for me?')
+      return redirect(url_for('index'))
+  ```
+  ```html
+  {% for message in get_flashed_messages() %}
+      <div class="alert">{{ message }}</div>
+  {% endfor %}
+  ```
+  > get_flashed_message() will clear all session messages
+  
+  - self-defined error page
+  ```python
+  @app.errorhandler(404)
+  def page_not_found(e):
+     return render_template('errors/404.html'), 404
+  
+  ```
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

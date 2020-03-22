@@ -1,0 +1,735 @@
+createdAt: "2020-01-09T05:54:33.037Z"
+updatedAt: "2020-01-09T05:55:39.758Z"
+type: "SNIPPET_NOTE"
+folder: "c75bf4e7ed3c2027bb4a"
+title: "frontend"
+tags: []
+description: "frontend"
+snippets: [
+  {
+    linesHighlighted: []
+    name: "configuration.py"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      import pytest
+      import logging
+      
+      LOGGER = logging.getLogger(__name__)
+      
+      
+      def enable_jschart_test_mode(puppet):
+          """
+          Enable JSChart test mode for the specified splunk instance.
+      
+          :type puppet: Puppet
+          :param puppet: the specified puppet
+      
+          :rtype: bool
+          :return: True if it requires splunk restart
+          """
+          if pytest.config.jschart_test_mode:
+              LOGGER.debug('Enable JSChart test mode')
+              with puppet.rest.namespace('nobody', 'system'):
+                  jschart_test_mode = puppet.rest.get_property(
+                      'web', 'settings/jschart_test_mode')[1]
+                  LOGGER.debug(
+                      "Existing jschart_test_mode: '{m}'".format(
+                          m=jschart_test_mode))
+                  if (str(jschart_test_mode).lower() in ['0', "false"]
+                          or not jschart_test_mode):
+                      puppet.rest.edit_property(
+                          'web', 'settings/jschart_test_mode', value=True)
+                      return True
+                  else:
+                      return False
+          else:
+              return False
+      
+    '''
+  }
+  {
+    name: "auth.py"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      from collections import namedtuple
+      
+      # Multi-Factor Authentication
+      MFA = namedtuple('MFA', 'type token')
+      
+    '''
+    linesHighlighted: []
+  }
+  {
+    name: "plugin.py"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      import pytest
+      import logging
+      import json
+      import inspect
+      
+      from .configuration import enable_jschart_test_mode
+      from .util import browsermanager
+      
+      
+      LOGGER = logging.getLogger(__name__)
+      
+      
+      def pytest_addoption(parser):
+          """
+          Code that is used for generating and displaying pytest test
+          arguments for the plugin
+          """
+          splk_group = parser.getgroup("Splunk Options")
+      
+          splk_group.addoption(
+              '--jschart-test-mode',
+              dest='jschart_test_mode',
+              action="store_true",
+              help='Enable JSChart test mode',
+              default=False)
+      
+      
+      def pytest_configure(config):
+          \'''
+          This is used for adding the pytest arguments to config variable, which can
+          be used in later portions of the code.
+          \'''
+          setattr(config, 'jschart_test_mode', config.getvalue('jschart_test_mode'))
+      
+      
+      @pytest.hookimpl(tryfirst=True)
+      def pytest_configure_theatre_deployment(theatre_deployment):
+          """
+          Apply initial frontend configurations for theatre deployment
+          """
+          LOGGER.debug(
+              'Apply initial frontend configurations in theatre deployment.')
+          search_heads = theatre_deployment.stage.search_heads
+          cluster_masters = theatre_deployment.stage.cluster_masters
+          puppets = search_heads.all() + cluster_masters.all()
+          search_head = search_heads.random_choice()
+      
+          for puppet in puppets:
+              if puppet.is_running():
+                  puppet.as_search_head.disable_ui_tours()
+                  needs_restart = enable_jschart_test_mode(puppet)
+      
+                  # disable instrumentation and python 3 modal
+                  # for non-cloud search heads
+                  if search_head.server_info.get('instance_type') != 'cloud':
+                      puppet.disable_python_3_impact_modal()
+                      needs_restart = puppet.disable_instrumentation_modal(
+                          restart_req=False) or needs_restart
+      
+                  if needs_restart:
+                      puppet.restart()
+      
+      
+      @pytest.yield_fixture(scope="function")
+      def remove_ui_prefs(theatre_deployment):
+          """
+          fixture to remove ui preferences for search heads in deployment
+          """
+          LOGGER.debug('remove UI preferences - setup')
+          search_heads = theatre_deployment.stage.search_heads
+          initial_user_prefs = {}
+      
+          for search_head in search_heads:
+              rest = search_head.rest
+              username = search_head.splunk.username
+      
+              if rest.is_splunkd_running():
+                  with rest.namespace(username, 'user-prefs'):
+                      user_pref = json.loads(rest.get_user_pref(
+                          'general', output_mode='json')[1])['entry'][0]['content']
+      
+                      for key in ['tz', 'default_earliest_time',
+                                  'default_latest_time']:
+                          initial_user_prefs.update(
+                              {key: user_pref.get(key, '')})
+      
+                      LOGGER.info(
+                          u'Here are the initial user-prefs: %s', initial_user_prefs)
+      
+                      # edit user prefs to set tz, default_earliest_time
+                      # and default_latest_time to automation friendly values
+                      rest.edit_user_pref(
+                          'general', tz=u'America/Los_Angeles',
+                          default_earliest_time='0', default_latest_time='now')
+      
+                  with rest.namespace(username, 'search'):
+                      for page in ['search', 'report', 'alert']:
+                          if rest.check_ui_pref(page):
+                              LOGGER.info(
+                                  u"Deleting the uiprefs for username '{user}' in "
+                                  "app '{app}' for the page {p}"
+                                  "".format(user=username, app='search', p=page))
+                              rest.delete_ui_pref(page)
+      
+                  with rest.namespace(username, 'launcher'):
+                      if rest.check_ui_pref('home'):
+                          LOGGER.info(
+                              u"Deleting the uiprefs for username '{user}' in app "
+                              "'{app}'".format(user=username, app='launcher'))
+                          rest.delete_ui_pref('home')
+      
+          yield
+      
+          LOGGER.debug('remove UI preferences - teardown')
+          for search_head in search_heads:
+              rest = search_head.rest
+              username = search_head.splunk.username
+      
+              if rest.is_splunkd_running():
+                  with rest.namespace(username, 'user-prefs'):
+                      rest.edit_user_pref('general', **initial_user_prefs)
+      
+      
+      @pytest.yield_fixture(scope="function")
+      def clean_up_object_references(request):
+          """
+          Clean up page object references to avoid memory leak
+          """
+          yield
+      
+          LOGGER.debug('clean up object references')
+      
+          test_instance = request.function.__self__
+      
+          for attr_name in dir(test_instance):
+              attr_value = getattr(test_instance, attr_name)
+              if (attr_value and not callable(attr_value) and
+                      inspect.isclass(type(attr_value))):
+                  module_info = inspect.getmodule(type(attr_value))
+                  if module_info and '.pages.' in module_info.__name__:
+                      LOGGER.warn(
+                          u'page object %s is not released, set to None',
+                          attr_name)
+                      setattr(test_instance, attr_name, None)
+      
+          if hasattr(test_instance, 'splunk_ui') and getattr(
+                  test_instance, 'splunk_ui'):
+              if hasattr(test_instance.splunk_ui, 'login_page'):
+                  LOGGER.warn(
+                      u'login_page object is not released, set to None')
+                  test_instance.splunk_ui.login_page = None
+      
+              if hasattr(test_instance.splunk_ui, 'search_page'):
+                  LOGGER.warn(
+                      u'search_page object is not released, set to None')
+                  test_instance.splunk_ui.search_page = None
+      
+              LOGGER.warn(u'SplunkUI object is not released, set to None')
+              test_instance.splunk_ui = None
+      
+          if hasattr(test_instance, 'browser'):
+              LOGGER.warn(u'Browser object is not released, set to None')
+              test_instance.browser = None
+      
+      
+      @pytest.yield_fixture(scope="function")
+      def function_browser_instance():
+          """
+          browser fixture with function scope
+          """
+          LOGGER.debug('setup functional scope browser')
+          browser_instance = browsermanager.init_browser()
+          yield browser_instance
+          LOGGER.debug('teardown functional scope browser')
+          browsermanager.destroy_all_browsers()
+      
+      
+      @pytest.yield_fixture(scope="module")
+      def module_browser_instance():
+          """
+          browser fixture with module scope
+          """
+          LOGGER.debug('setup module scope browser')
+          browser_instance = browsermanager.init_browser()
+          yield browser_instance
+          LOGGER.debug('teardown module scope browser')
+          browsermanager.destroy_all_browsers()
+      
+      
+      @pytest.yield_fixture(scope="session")
+      def session_browser_instance():
+          """
+          browser fixture with session scope
+          """
+          LOGGER.debug('setup session scope browser')
+          browser_instance = browsermanager.init_browser()
+          yield browser_instance
+          LOGGER.debug('teardown session scope browser')
+          browsermanager.destroy_all_browsers()
+      
+      
+      def _construct_report(browser, test_func):
+          """
+          construct test report in each test case setup
+      
+          :type browser: WebDriverWrapper
+          :param browser: browser instance
+      
+          :type test_func: Function
+          :param test_func: test function
+          """
+          LOGGER.debug('construct test report in each test case setup')
+          test_name = test_func.__name__
+      
+          # get the splunk version
+          if ('config' in pytest.__dict__ and
+                  'splunk_version' in pytest.config.__dict__):
+              splunk_version = pytest.config.splunk_version
+          else:
+              splunk_version = ''
+      
+          user_agent = browser.execute_script("return navigator.userAgent")
+      
+          if 'test_info' in pytest.__dict__:
+              pytest.test_info.user_agent = user_agent
+              pytest.test_info.testcase_doc = test_func.__doc__
+      
+          pytest.config._environment.append(('Splunk Version', splunk_version))
+          pytest.config._environment.append(('User Agent', user_agent))
+      
+          if 'instance_type' in pytest.config.__dict__:
+              pytest.config._environment.append((
+                  'Instance type', pytest.config.instance_type))
+      
+          if 'saucelabs' in pytest.config.__dict__ and pytest.config.saucelabs:
+              pytest.config.saucelabs_rest.set_test_name(
+                  browser.session_id,
+                  "{name}-{browser}: {test}".format(
+                      name=pytest.config.saucelabs_username,
+                      browser=pytest.config.browser,
+                      test=test_name))
+              LOGGER.info(
+                  "sauce: http://www.saucelabs.com/jobs/{id}".format(
+                      id=browser.session_id))
+              pytest.config.__setattr__(
+                  'sauce_job_link',
+                  pytest.config.saucelabs_rest.generate_no_login_job_link(
+                      browser.session_id))
+              pytest.config.__setattr__(
+                  'sauce_log',
+                  'https://saucelabs.com/jobs/{id}/selenium-server.log'.format(
+                      id=browser.session_id))
+      
+      
+      @pytest.fixture(scope="function")
+      def function_browser(
+              request, function_browser_instance, remove_ui_prefs,
+              clean_up_object_references):
+          """
+          browser fixture facade with function scope
+          """
+          _construct_report(function_browser_instance, request.function)
+          return function_browser_instance
+      
+      
+      @pytest.fixture(scope="function")
+      def module_browser(
+              request, module_browser_instance, remove_ui_prefs,
+              clean_up_object_references):
+          """
+          browser fixture facade with module scope
+          """
+          _construct_report(module_browser_instance, request.function)
+          return module_browser_instance
+      
+      
+      @pytest.fixture(scope="function")
+      def session_browser(
+              request, session_browser_instance, remove_ui_prefs,
+              clean_up_object_references):
+          """
+          browser fixture facade with session scope
+          """
+          _construct_report(session_browser_instance, request.function)
+          return session_browser_instance
+      
+      
+      # browser is function scope by default
+      browser = function_browser
+      
+    '''
+    linesHighlighted: []
+  }
+  {
+    name: "testcase.py"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      import contextlib
+      import datetime
+      import json
+      import logging
+      import os
+      
+      import polling
+      import pytest
+      import requests
+      from pytest_splunk_base.testcase import BaseTest
+      from splunkwebdriver.models.components.account import rsa_mfa_login as rsa
+      from splunkwebdriver.models.components.shared import splunkbar
+      from splunkwebdriver.models.pages import account
+      from splunkwebdriver.models.pages.LoginPage import LoginPage
+      
+      LOGGER = logging.getLogger(__name__)
+      TIMEOUT = 60
+      POLL_FREQUENCY = 0.5
+      
+      
+      class WebTestMixin(object):
+          """
+          The web test mixin for multiple inheritance
+          """
+      
+          @classmethod
+          @contextlib.contextmanager
+          def login(
+                  cls, puppet, browser, username=None, password=None,
+                  login_page_class=None, login_type=None,
+                  mfa=None, post_login_func=None):
+              """
+              The splunk login context manager
+      
+              :type puppet: Puppet
+              :param puppet: the specified puppet
+      
+              :type browser: WebDriverWrapper
+              :param browser: the specified browser
+      
+              :type username: str/unicode
+              :param username: the specified splunk username
+      
+              :type password: str/unicode
+              :param password: the specified splunk password
+      
+              :type login_page_class: Class
+              :param login_page_class: the specified login page class
+      
+              :type login_type: string
+              :param login_type: append '?loginType={}' to login url
+                                 to choose login type
+      
+              :type mfa: MFA
+              :param mfa: the specified MFA (Multi-Factor Authentication) object
+      
+              :type post_login_func: Function
+              :param post_login_func: post-login function: function(login_page)
+              """
+              login_page = cls.sign_in(
+                  puppet, browser, username=username, password=password,
+                  login_page_class=login_page_class, login_type=login_type,
+                  mfa=mfa, post_login_func=post_login_func)
+              try:
+                  yield login_page
+              except Exception:
+                  cls.capture_screenshot_as_base64(browser)
+                  raise
+              finally:
+                  login_page.logout()
+      
+          @classmethod
+          def sign_in(
+                  cls, puppet, browser, username=None, password=None,
+                  login_page_class=None, login_type=None,
+                  mfa=None, post_login_func=None):
+              """
+              Sign in the splunk web site, return the login page
+      
+              :type puppet: Puppet
+              :param puppet: the specified puppet
+      
+              :type browser: WebDriverWrapper
+              :param browser: the specified browser
+      
+              :type username: str/unicode
+              :param username: the specified splunk username
+      
+              :type password: str/unicode
+              :param password: the specified splunk password
+      
+              :type login_page_class: Class
+              :param login_page_class: the specified login page class
+      
+              :type login_type: string
+              :param login_type: append '?loginType={}' to login url
+                                 to choose login type
+      
+              :type mfa: MFA
+              :param mfa: the specified MFA (Multi-Factor Authentication) object
+      
+              :type post_login_func: Function
+              :param post_login_func: post-login function: function(login_page)
+      
+              :rtype: login_page_class
+              :return: login page
+              """
+              username = username or puppet.splunk.username
+              password = password or puppet.splunk.password
+      
+              cls.wait_for_splunk_web_to_be_available(puppet)
+      
+              login_page, tos_accept = cls._resloved_login_page_and_tos(
+                  puppet, browser, login_page_class)
+              login_page.login(username, password, login_type=login_type)
+      
+              if tos_accept is not None and tos_accept.is_displayed():
+                  LOGGER.info('TOS is not accepted yet.')
+                  tos_accept.accept.wait_to_be_displayed()
+                  tos_accept.accept.check()
+                  tos_accept.ok_btn.click()
+      
+              if mfa is not None and mfa.type == 'rsa':
+                  rsa_login_page = rsa.RsaAccountLogin(browser)
+                  rsa_login_page.wait_to_be_displayed()
+                  rsa_login_page.passcode.value = mfa.token
+                  rsa_login_page.submit_button.click()
+      
+              # check if it is splunk light
+              lic_entries = json.loads(
+                  puppet.rest.get_all_licenser_group(
+                      search='is_active=1', output_mode='json')[1])['entry']
+      
+              if lic_entries:
+                  lic_stack_ids = lic_entries[0]['content']['stack_ids']
+              else:
+                  lic_stack_ids = []
+      
+              splkbar = splunkbar.Splunkbar(browser)
+              splkbar.wait_to_be_displayed()
+      
+              if post_login_func is not None:
+                  LOGGER.info('Call custom post-login function.')
+                  post_login_func(login_page)
+      
+              return login_page
+      
+          @classmethod
+          def _resloved_login_page_and_tos(cls, puppet, browser, login_page_class):
+              """
+              Resolve login page and ToS
+      
+              :type puppet: Puppet
+              :param puppet: the specified puppet
+      
+              :type browser: WebDriverWrapper
+              :param browser: the specified browser
+      
+              :type login_page_class: Class
+              :param login_page_class: the specified login page class
+      
+              :rtype: tuple
+              :return: tuple of login page and ToS
+              """
+              if login_page_class is None:
+                  app_server_ports = puppet.rest.get_property(
+                      'web', 'settings/appServerPorts')[1]
+                  splunkd_proxy_enabled = bool(app_server_ports)
+                  LOGGER.info(
+                      'splunkd_proxy_enabled: {p}'.format(p=splunkd_proxy_enabled))
+      
+                  if splunkd_proxy_enabled:
+                      LOGGER.info('Using new login page')
+                      login_page = account.Account(
+                          browser, web_url=puppet.web_base())
+                      tos_accept = login_page.account.tos_accept
+                  else:
+                      LOGGER.info('Using old login page')
+                      login_page = LoginPage(
+                          browser, web_url=puppet.web_base())
+                      tos_accept = login_page.tos_accept
+              else:
+                  LOGGER.info('Using custom login page')
+                  login_page = login_page_class(browser, web_url=puppet.web_base())
+                  tos_accept = getattr(login_page, 'tos_accept', None)
+      
+              return login_page, tos_accept
+      
+          @classmethod
+          def sign_out(
+                  cls, puppet, browser, login_page_class=None):
+              """
+              Sign out the splunk web site
+      
+              :type puppet: Puppet
+              :param puppet: the specified puppet
+      
+              :type browser: WebDriverWrapper
+              :param browser: the specified browser
+      
+              :type login_page_class: Class
+              :param login_page_class: the specified login page class
+      
+              :rtype: string
+              :return: the error message displayed on the login page if there is one
+      
+              """
+              login_page, _ = cls._resloved_login_page_and_tos(
+                  puppet, browser, login_page_class)
+              return login_page.logout()
+      
+          logout = sign_out
+      
+          @staticmethod
+          def capture_screenshot(browser, name=None):
+              """
+              Capture a screenshot if it was setup properly.
+              Returns the file path to the screenshot.
+      
+              :type browser: WebDriverWrapper
+              :param browser: browser
+      
+              :type name: string
+              :param name: file path to store the screenshot
+      
+              :rtype: string
+              :return: Returns the file path to the screenshot
+              """
+              if name is None:
+                  filename = "screenshot_{s}.png".format(
+                      s=str(datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')))
+              else:
+                  filename = name
+      
+              file_path = os.path.abspath(os.path.join(os.path.curdir, filename))
+              browser.get_screenshot_as_file(file_path)
+              pytest.config.screenshots.append(file_path)
+              return file_path
+      
+          @staticmethod
+          def capture_screenshot_as_base64(browser):
+              """
+              Captures the screenshot and returns the base64 string encoding
+              of the image.
+      
+              :type browser: WebDriverWrapper
+              :param browser: browser
+      
+              :rtype: string
+              :return: the base64 encoding of the captured screenshot
+              """
+              img_cont = browser.get_screenshot_as_base64()
+              img_src = "data:image/png;base64,{}".format(img_cont)
+              pytest.config.screenshots.append(img_src)
+              return img_cont
+      
+          @classmethod
+          def is_splunk_web_available(cls, puppet, http_auth=False):
+              \'''
+              Tests whether the specified Splunk Web is reachable
+      
+              :type puppet: SplunkPuppet
+              :param puppet: splunk instance
+      
+              :type http_auth: bool
+              :param http_auth: for Basic/Digest/Custom HTTP Auth or not
+              \'''
+              try:
+                  web_url = puppet.web_base()
+                  LOGGER.info(
+                      'Checking if Splunk Web is available: {}'.format(web_url))
+      
+                  if http_auth:
+                      auth = (puppet.username, puppet.password)
+                  else:
+                      auth = None
+      
+                  # add 'verify=False' to avoid certificate issue
+                  response = requests.get(web_url, auth=auth, verify=False)
+                  LOGGER.info(
+                      "Splunk Web request: {0}\\nresponse: {1}".format(
+                          web_url, response.status_code))
+                  LOGGER.debug('Splunk Web content: {}'.format(response.content))
+                  return response.status_code == 200
+              except Exception as e:
+                  LOGGER.info("Splunk Web is not responding. {}".format(e.message))
+                  return False
+      
+          @classmethod
+          def wait_for_splunk_web_to_be_available(
+                  cls, puppet, http_auth=False,
+                  timeout=TIMEOUT, poll_frequency=POLL_FREQUENCY):
+              \'''
+              Waits for Splunk Web to become available.
+      
+              :type puppet: SplunkPuppet
+              :param puppet: splunk instance
+      
+              :type http_auth: bool
+              :param http_auth: for Basic/Digest/Custom HTTP Auth or not
+      
+              :type timeout: int
+              :param timeout: the number of seconds to wait before giving up
+      
+              :type poll_frequency: int
+              :param poll_frequency: the number of seconds to wait between polls
+              \'''
+      
+              kwargs = {
+                  'puppet': puppet,
+                  'http_auth': http_auth
+              }
+              return polling.poll_for_condition(
+                  cls.is_splunk_web_available, func_args=(), func_kwargs=kwargs,
+                  timeout=timeout, frequency=poll_frequency,
+                  error_message=(
+                      "Splunk Web '{}' could not be reached after {} seconds, "
+                      "with a poll of {} seconds".format(
+                          puppet.web_base(), timeout, poll_frequency)))
+      
+          @classmethod
+          def restart_splunk(
+                  cls, puppet, http_auth=False, use_rest=False,
+                  timeout=360, poll_frequency=POLL_FREQUENCY):
+              """
+              Restarts splunk and wait for splunk web to be available.
+      
+              :type puppet: SplunkPuppet
+              :param puppet: splunk instance
+      
+              :type http_auth: bool
+              :param http_auth: for Basic/Digest/Custom HTTP Auth or not,
+                                default is False.
+      
+              :type use_rest: bool
+              :param use_rest: Restart splunk via REST or not, default is False.
+      
+              :type timeout: int
+              :param timeout: the number of seconds to wait before giving up.
+      
+              :type poll_frequency: int
+              :param poll_frequency: the number of seconds to wait between polls.
+              """
+              puppet.restart(use_rest=use_rest, timeout=timeout)
+              cls.wait_for_splunk_web_to_be_available(
+                  puppet, http_auth=http_auth,
+                  timeout=timeout, poll_frequency=poll_frequency)
+      
+      
+      class BaseWebTest(BaseTest, WebTestMixin):
+          """
+          The web base class for DATF frontend test
+          """
+          pass
+      
+    '''
+    linesHighlighted: []
+  }
+]
+isStarred: false
+isTrashed: false

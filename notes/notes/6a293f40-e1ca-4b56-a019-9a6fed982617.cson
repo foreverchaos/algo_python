@@ -1,0 +1,20 @@
+createdAt: "2019-07-27T04:23:58.250Z"
+updatedAt: "2019-10-15T03:33:39.481Z"
+type: "MARKDOWN_NOTE"
+folder: "1b426d7766d1e36b59e7"
+title: "Search Head Cluster"
+tags: []
+content: '''
+  # Search Head Cluster
+  
+  - SHC的case中要执行captain switch操作的话需要将non-captain member上server.conf中的preferred_captain置为true
+  https://jira.splunk.com/browse/INFRA-14223
+  
+  - SHC dm acceleration active access count
+  limit conf: 
+  [auto_summarizer]
+  shc_accurate_access_counts = true
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

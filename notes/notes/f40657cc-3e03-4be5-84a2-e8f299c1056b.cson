@@ -1,0 +1,44 @@
+createdAt: "2020-03-17T09:17:18.848Z"
+updatedAt: "2020-03-17T10:04:11.068Z"
+type: "MARKDOWN_NOTE"
+folder: "b52a7c0642d2c6d5f4b4"
+title: "K8S namespace"
+tags: []
+content: '''
+  # K8S namespace
+  - we can use same name of pod when in different namespace
+  
+  - list namespace
+  ```
+  kubectl get namespace
+  ```
+  - create namespace
+  ```
+  kubectl create namespace <name>
+  ```
+  - delete namespace
+  ```
+  kubectl delete namespace <name>
+  ```
+  - get pod with namespace
+  ```
+  kubectl get pod --namespace <namespace>
+  ```
+  - pod yaml for specify namespace
+  ```yaml
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: nginx
+    namespace: demo
+  spec:
+    containers:
+    - name: nginx
+      image: nginx
+      ports:
+      - containerPort: 80
+  ```
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

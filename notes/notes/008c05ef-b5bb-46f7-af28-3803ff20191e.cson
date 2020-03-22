@@ -1,0 +1,29 @@
+createdAt: "2019-08-16T10:18:10.883Z"
+updatedAt: "2019-08-16T10:20:04.351Z"
+type: "SNIPPET_NOTE"
+folder: "a8a34bf81446463f9ca3"
+title: "dynamic build function"
+tags: []
+description: "dynamic build function"
+snippets: [
+  {
+    linesHighlighted: []
+    name: ""
+    mode: "Python"
+    content: '''
+          line = inspect.getsource(add)
+          line = line.replace('+', '*')
+          foo_code = compile(line, "", "exec")
+          foo_func = FunctionType(foo_code.co_consts[0], globals())
+          foo_func(4, 5)
+          add(4, 5)
+          
+          
+          def add(x, y):
+            print x + y
+            return x + y
+    '''
+  }
+]
+isStarred: false
+isTrashed: false

@@ -1,0 +1,32 @@
+createdAt: "2020-01-26T05:46:51.706Z"
+updatedAt: "2020-01-26T07:21:08.232Z"
+type: "MARKDOWN_NOTE"
+folder: "d38eb8d5dfbe6ecb1827"
+title: "Docker Image"
+tags: []
+content: '''
+  # Docker Image
+  
+  - 镜像是一种轻量级，可执行的独立软件包，用来打包软件的运行环境和基于运行环境开发的软件，包含代码，运行时，库，环境变量，配置文件
+  - UnionFS： 联合文件系统，是一种分层，轻量级并且高性能的文件系统，支持对文件系统的修改作为一次提交来一层层的叠加。镜像可以通过分层来进行继承，可以制作各种具体的应用镜像
+  ---
+  - 镜像加载原理：
+  ![docker_image.png](:storage\\506f8c3a-df25-49bd-9f79-5c77b08e041b\\f3cd557b.png =1000x420)
+  
+  
+  - Docker commit
+  > Create a new image from a container's changes
+  ```ruby
+  # Usage:  docker commit [OPTIONS] CONTAINER [REPOSITORY[:TAG]]
+  docker commit -a 'louis' -m 'test comments' d191f894a2c7 louis/tomcat001:1.2
+  Options:
+    -a, --author string    Author (e.g., "John Hannibal Smith <hannibal@a-team.com>")
+    -c, --change list      Apply Dockerfile instruction to the created image
+    -m, --message string   Commit message
+    -p, --pause            Pause container during commit (default true)
+  ```
+  
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

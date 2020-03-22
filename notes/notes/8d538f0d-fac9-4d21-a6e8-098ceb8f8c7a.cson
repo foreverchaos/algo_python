@@ -1,0 +1,17 @@
+createdAt: "2019-12-16T10:52:39.388Z"
+updatedAt: "2019-12-16T11:05:18.345Z"
+type: "MARKDOWN_NOTE"
+folder: "9735934e93822da78c0f"
+title: "Thread/Process"
+tags: []
+content: '''
+  ### Thread/Process
+  - 进程是系统资源分配的最小单位，线程是程序执行的最小单位；
+  - 进程使用独立的数据空间，而线程共享进程的数据空间。
+  
+  ### 进程间通信 IPC
+  - 进程间数据共享的场景可以使用共享内存；进程间数据交换的场景可以使用 Unix Socket 或者消息队列，还有管道等方式
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

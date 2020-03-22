@@ -1,0 +1,123 @@
+createdAt: "2020-03-19T05:19:11.444Z"
+updatedAt: "2020-03-22T10:39:03.361Z"
+type: "MARKDOWN_NOTE"
+folder: "b52a7c0642d2c6d5f4b4"
+title: "K8S service"
+tags: []
+content: '''
+  # K8S service
+  - overview
+  ![QQ图片20200319140941.png](:storage\\5b35f056-a374-448d-8c16-ff5a1e559626\\e2f78543.png =800x450)
+  > deployment/pod can be abstracted as a service, a service ip is external ip can be accessed from outer side
+  - service can be created with label of a  deployment
+  
+  ## service type
+  - ClusterIP
+  - NodePort
+  - LoadBalancer
+  
+  ### cluster IP (only be accessed inner k8s cluster)
+  - create cluster ip service for pod/deployment
+  > use yaml to create service
+  - service yaml
+  ```yaml
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: service-nginx
+  spec:
+    type: ClusterIP
+    selector:
+      app: nginx # select label for specific pods
+    ports:
+    - protocol: TCP
+      port: 8080 # map port for service (external use)
+      targetPort: 80 # pod port
+  ```
+  - pod yaml
+  ```yaml
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: pod-nginx
+    labels:
+      app: nginx
+  spec:
+    containers:
+    - name: nginx
+      image: nginx
+      ports:
+      - containerPort: 80
+  ```
+  ```ruby
+  kubectl create -f <name.yml>
+  kubect get service -o wide
+  ```
+  > create service using cmd for pod
+  ```ruby
+  # port is service port, target-port is pod port
+  kubectl expose pod <pod> --port=8080 --target-port=80 --name=service-nginx
+  ```
+  
+  > create service using cmd for deployment
+  ```ruby
+  # port is service port, target-port is pod port
+  kubectl expose deployment <deployment> --port=8080 --target-port=80 --name=service-nginx
+  ```
+  > if a deployment has multiple replica, service will attach pod with load balance
+  
+  ### NodePort
+  - service yaml
+  ```yaml
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: service-nginx
+  spec:
+    type: NodePort # default is ClusterIp
+    selector:
+      app: nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 80
+  ```
+  - nodeport service created
+  ```ruby
+  vagrant@k8s-master:~$ kubectl get svc -o wide
+  NAME            TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE   SELECTOR
+  kubernetes      ClusterIP   10.96.0.1        <none>        443/TCP          18h   <none>
+  service-nginx   NodePort    10.109.179.152   <none>        8080:30439/TCP   9s    app=nginx
+  ```
+  > port 30439 will be opened for each nodes in cluster, and we can access using 127.0.0.1:30439 on each nodes
+  > if node has external ip, can be access <external.ip>:30439
+  
+  - nodeport for deployment using cmd
+  ```ruby
+  kubectl expose deployment <deployment> --type=NodePort --port=8080 --target-port=80 --name=service-nginx
+  ```
+  ### LoadBalancer
+  - need cloud support
+  
+  ### Headless service
+  - sometime we don't need loadbalance, and independent service IP
+  - this kind of service will not be allocated Cluster IP, and kube-proxy will not deal with them
+  ```yaml
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: myapp-headless
+    namespace: default
+  spec:
+    selector:
+      app: nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 80
+  
+  ```
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

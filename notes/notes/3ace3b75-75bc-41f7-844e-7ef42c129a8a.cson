@@ -1,0 +1,58 @@
+createdAt: "2020-01-26T07:34:24.377Z"
+updatedAt: "2020-01-26T13:36:18.043Z"
+type: "MARKDOWN_NOTE"
+folder: "d38eb8d5dfbe6ecb1827"
+title: "Docker data volume"
+tags: []
+content: '''
+  # Docker data volume
+  - 卷就是目录或文件，存在于一个或多个容器中，由docker挂载到容器，但不属于联合文件系统，因此能够绕过Union File System提供的一些用于持续存储或共享数据的特性。
+  - docker数据共享和数据持久化，docker不会在容器删除时删除其挂载的数据卷
+  - 容器数据卷的特点：
+  > 数据卷可在容器之间共享或重用数据
+  > 卷中的更改可以直接生效
+  > 数据卷中的更改不会包含在镜像的更新中
+  > 数据卷的生命周期一直持续到没有容器使用它为止
+  
+  - Docker mount volume
+  > Bind mount a data volume using cmd
+  ```ruby
+  docker run -it -v /[宿主机绝对路径目录]:/[容器内目录] [IMAGE]
+  
+  docker run -it -v /c/testDV:/testDV_C centos
+  
+  # read-only, 容器可以同步宿主机的内容，但是容器本身不可写入
+  docker run -it -v /c/testDV:/testDV_C:ro centos
+  # if you use windows WSL docker
+  # run 'ln -s /mnt/c /c', and run docker -v cmd into this dir
+  ```
+  
+  
+  - Docker mount volume using Dockerfile
+  ```
+  FROM centos
+  VOLUME ["/dataVolumeC1", "/dataVolumeC2"]
+  CMD echo "mount volume finished"
+  CMD /bin/bash
+  ```
+  ```ruby
+  # docker will automatically allocate mapping dir in host
+  # please use docker inspect
+  docker build -f /mydocker/dockerfile1 -t louis/centos .
+  ```
+  >[Reference of last . from docker build command](https://blog.csdn.net/xs20691718/article/details/79502019)
+  
+  
+  - Docker data volume container
+  ```ruby
+  # 1. run docker image including volume
+  docker run -it --name dc01 louis/centos_volume
+  # 2. update volume dir content in dc01 and run another container
+  # you can see data content synchornized
+  docker run -it --name dc02 --volumes-from dc01 louis/centos_volume
+  # 3. update volume dir content in dc02, you can see the update both appears in dc01 and dc02 
+  ```
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

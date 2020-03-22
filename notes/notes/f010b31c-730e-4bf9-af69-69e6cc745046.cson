@@ -1,0 +1,281 @@
+createdAt: "2020-03-01T09:32:15.259Z"
+updatedAt: "2020-03-05T14:04:39.609Z"
+type: "SNIPPET_NOTE"
+folder: "2ba4b3be784e73eaaefb"
+title: "Locust get stats"
+tags: []
+description: '''
+  Locust get stats
+  https://github.com/lucrib/locust_influx
+'''
+snippets: [
+  {
+    linesHighlighted: []
+    name: ""
+    mode: "Python"
+    content: '''
+      import six
+      import requests
+      import threading
+      
+      from itertools import chain
+      from influxdb import InfluxDBClient
+      from locust import runners
+      from locust.stats import sort_stats
+      from locust.runners import SlaveLocustRunner, MasterLocustRunner
+      
+      __all__ = ['start']
+      interval = 5        # interval time for save data
+      client = InfluxDBClient('localhost', 8086, database='locust')
+      
+      
+      def get_locust_stats_by_web_api():
+          print("get_locust_stats")
+          try:
+              start_url = f'http://localhost:8089/stats/requests'
+              print(start_url)
+              return requests.get(start_url).json()
+          except Exception as e:
+              print(e)
+      
+      
+      def get_locust_stats():
+          stats = []
+      
+          for s in chain(sort_stats(runners.locust_runner.request_stats), [runners.locust_runner.stats.total]):
+              stats.append({
+                  "method": s.method,
+                  "name": s.name,
+                  "num_requests": s.num_requests,
+                  "num_failures": s.num_failures,
+                  "avg_response_time": s.avg_response_time,
+                  "min_response_time": s.min_response_time or 0,
+                  "max_response_time": s.max_response_time,
+                  "current_rps": s.current_rps,
+                  "median_response_time": s.median_response_time,
+                  "avg_content_length": s.avg_content_length,
+              })
+      
+          errors = [e.to_dict() for e in six.itervalues(runners.locust_runner.errors)]
+      
+          # Truncate the total number of stats and errors displayed since a large number of rows will cause the app
+          # to render extremely slowly. Aggregate stats should be preserved.
+          report = {"stats": stats[:500], "errors": errors[:500]}
+      
+          if stats:
+              report["total_rps"] = stats[len(stats) - 1]["current_rps"]
+              report["fail_ratio"] = runners.locust_runner.stats.total.fail_ratio
+              report[
+                  "current_response_time_percentile_95"] = runners.locust_runner.stats.total.get_current_response_time_percentile(
+                  0.95)
+              report[
+                  "current_response_time_percentile_50"] = runners.locust_runner.stats.total.get_current_response_time_percentile(
+                  0.5)
+      
+          is_distributed = isinstance(runners.locust_runner, MasterLocustRunner)
+          if is_distributed:
+              slaves = []
+              for slave in runners.locust_runner.clients.values():
+                  slaves.append({"id": slave.id, "state": slave.state, "user_count": slave.user_count})
+      
+              report["slaves"] = slaves
+      
+          report["state"] = runners.locust_runner.state
+          report["user_count"] = runners.locust_runner.user_count
+      
+          return report
+      
+      
+      def save_to_db(project_name, host, rep):
+          print('save_to_db')
+          save_summary(project_name, host, rep)
+          save_data(project_name, host, rep, 'errors')
+          save_data(project_name, host, rep, 'stats')
+      
+      
+      def save_summary(project_name, host, rep):
+          summary = [
+              {
+                  "measurement": "summary",
+                  "tags": {
+                      "host": host,
+                      "project_name": project_name
+                  },
+                  "fields": {
+                      "current_response_time_percentile_50": rep['current_response_time_percentile_50'],
+                      "current_response_time_percentile_95": rep['current_response_time_percentile_95'],
+                      "fail_ratio": rep['fail_ratio'],
+                      "total_rps": rep['total_rps'],
+                      "user_count": rep['user_count']
+                  }
+              }
+          ]
+          client.write_points(summary)
+      
+      
+      def save_data(project_name, host, rep, data_name):
+          data_list = rep[data_name]
+          summary = [
+              {
+                  "measurement": data_name,
+                  "tags": {
+                      "host": host,
+                      "project_name": project_name,
+                      "path": data['name']
+                  },
+                  "fields": data
+              } for data in data_list
+          ]
+          client.write_points(summary)
+      
+      
+      def get_locust_host():
+          if runners.locust_runner.host:
+              host = runners.locust_runner.host
+          elif len(runners.locust_runner.locust_classes) > 0:
+              host = runners.locust_runner.locust_classes[0].host
+          else:
+              host = None
+      
+          return host
+      
+      
+      def monitor(project_name):
+          print("start monitoring")
+          slave = isinstance(runners.locust_runner, SlaveLocustRunner)
+          if slave:
+              print('is slave, will not rerun')
+              return
+      
+          try:
+              rep = get_locust_stats()
+              if rep['state'] == 'running':
+                  host = get_locust_host()
+                  save_to_db(project_name, host, rep)
+                  print(f'is_slave: {slave}, host: {host}, project_name: {project_name}')
+              else:
+                  print('it is not running now')
+          except Exception as e:
+              print(e)
+      
+          timer = threading.Timer(interval, monitor, args=[project_name])
+          timer.start()
+      
+      
+      def start(*args, **kwargs):
+          timer = threading.Timer(5, monitor, args=args, kwargs=kwargs)
+          timer.start()
+    '''
+  }
+  {
+    name: ""
+    mode: "Python"
+    content: '''
+          def request(self, method, url, name=None, catch_response=False, **kwargs):
+              """
+              Constructs and sends a :py:class:`requests.Request`.
+              Returns :py:class:`requests.Response` object.
+      
+              :param method: method for the new :class:`Request` object.
+              :param url: URL for the new :class:`Request` object.
+              :param name: (optional) An argument that can be specified to use as label in Locust's statistics instead of the URL path. 
+                This can be used to group different URL's that are requested into a single entry in Locust's statistics.
+              :param catch_response: (optional) Boolean argument that, if set, can be used to make a request return a context manager 
+                to work as argument to a with statement. This will allow the request to be marked as a fail based on the content of the 
+                response, even if the response code is ok (2xx). The opposite also works, one can use catch_response to catch a request
+                and then mark it as successful even if the response code was not (i.e 500 or 404).
+              :param params: (optional) Dictionary or bytes to be sent in the query string for the :class:`Request`.
+              :param data: (optional) Dictionary or bytes to send in the body of the :class:`Request`.
+              :param headers: (optional) Dictionary of HTTP Headers to send with the :class:`Request`.
+              :param cookies: (optional) Dict or CookieJar object to send with the :class:`Request`.
+              :param files: (optional) Dictionary of ``'filename': file-like-objects`` for multipart encoding upload.
+              :param auth: (optional) Auth tuple or callable to enable Basic/Digest/Custom HTTP Auth.
+              :param timeout: (optional) How long in seconds to wait for the server to send data before giving up, as a float, 
+                  or a (`connect timeout, read timeout <user/advanced.html#timeouts>`_) tuple.
+              :type timeout: float or tuple
+              :param allow_redirects: (optional) Set to True by default.
+              :type allow_redirects: bool
+              :param proxies: (optional) Dictionary mapping protocol to the URL of the proxy.
+              :param stream: (optional) whether to immediately download the response content. Defaults to ``False``.
+              :param verify: (optional) if ``True``, the SSL cert will be verified. A CA_BUNDLE path can also be provided.
+              :param cert: (optional) if String, path to ssl client cert file (.pem). If Tuple, ('cert', 'key') pair.
+              """
+              
+              # prepend url with hostname unless it's already an absolute URL
+              url = self._build_url(url)
+              
+              # store meta data that is used when reporting the request to locust's statistics
+              request_meta = {}
+              
+              # set up pre_request hook for attaching meta data to the request object
+              request_meta["method"] = method
+              request_meta["start_time"] = time.time()
+              
+              response = self._send_request_safe_mode(method, url, **kwargs)
+              
+              # record the consumed time
+              request_meta["response_time"] = (time.time() - request_meta["start_time"]) * 1000
+              
+          
+              request_meta["name"] = name or (response.history and response.history[0] or response).request.path_url
+              
+              # get the length of the content, but if the argument stream is set to True, we take
+              # the size from the content-length header, in order to not trigger fetching of the body
+              if kwargs.get("stream", False):
+                  request_meta["content_size"] = int(response.headers.get("content-length") or 0)
+              else:
+                  request_meta["content_size"] = len(response.content or b"")
+              
+              if catch_response:
+                  response.locust_request_meta = request_meta
+                  return ResponseContextManager(response)
+              else:
+                  if name:
+                      # Since we use the Exception message when grouping failures, in order to not get 
+                      # multiple failure entries for different URLs for the same name argument, we need 
+                      # to temporarily override the reponse.url attribute
+                      orig_url = response.url
+                      response.url = name
+                  try:
+                      response.raise_for_status()
+                  except RequestException as e:
+                      events.request_failure.fire(
+                          request_type=request_meta["method"], 
+                          name=request_meta["name"], 
+                          response_time=request_meta["response_time"], 
+                          response_length=request_meta["content_size"],
+                          exception=e, 
+                      )
+                  else:
+                      events.request_success.fire(
+                          request_type=request_meta["method"],
+                          name=request_meta["name"],
+                          response_time=request_meta["response_time"],
+                          response_length=request_meta["content_size"],
+                      )
+                  if name:
+                      response.url = orig_url
+                  return response
+          
+          def _send_request_safe_mode(self, method, url, **kwargs):
+              """
+              Send an HTTP request, and catch any exception that might occur due to connection problems.
+              
+              Safe mode has been removed from requests 1.x.
+              """
+              try:
+                  return requests.Session.request(self, method, url, **kwargs)
+              except (MissingSchema, InvalidSchema, InvalidURL):
+                  raise
+              except RequestException as e:
+                  r = LocustResponse()
+                  r.error = e
+                  r.status_code = 0  # with this status_code, content returns None
+                  r.request = Request(method, url).prepare() 
+                  return r
+    '''
+    linesHighlighted: []
+  }
+]
+isStarred: false
+isTrashed: false

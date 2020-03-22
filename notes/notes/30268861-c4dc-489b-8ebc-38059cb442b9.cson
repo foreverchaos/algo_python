@@ -1,0 +1,17 @@
+createdAt: "2020-03-16T08:51:09.481Z"
+updatedAt: "2020-03-16T08:51:42.093Z"
+type: "MARKDOWN_NOTE"
+folder: "d38eb8d5dfbe6ecb1827"
+title: "Docker win troubleshooting"
+tags: []
+content: '''
+  # Docker win troubleshooting
+  - open hypervisor
+  首先，管理员身份打开提示符。
+  输入 bcdedit 并回车，找到hypervisorlaunchtype选项发现为auto
+  输入命令bcdedit /set hypervisorlaunchtype off
+  重启电脑
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

@@ -1,0 +1,13 @@
+createdAt: "2019-12-16T11:05:51.647Z"
+updatedAt: "2019-12-16T11:06:15.578Z"
+type: "MARKDOWN_NOTE"
+folder: "9735934e93822da78c0f"
+title: "Linux command"
+tags: []
+content: '''
+  ### Linux command
+  - top, netstate, grep, less, more, tail, head, find
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

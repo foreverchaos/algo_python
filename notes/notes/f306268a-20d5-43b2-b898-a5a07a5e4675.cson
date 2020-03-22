@@ -1,0 +1,1178 @@
+createdAt: "2020-01-09T03:01:19.457Z"
+updatedAt: "2020-01-09T03:03:19.850Z"
+type: "SNIPPET_NOTE"
+folder: "c75bf4e7ed3c2027bb4a"
+title: "rest_wrapper/job"
+tags: []
+description: '''
+  rest_wrapper/job
+  
+'''
+snippets: [
+  {
+    linesHighlighted: []
+    name: "job.py"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      import json
+      
+      from polling import poll_for_condition
+      from sharedtestutils.decorators import deprecated_by
+      
+      from ...base import Entity
+      from .results import Results
+      
+      
+      class Job(Entity):
+          """
+          Job endpoint
+          Do not instantiate this in tests, use the manager to get Job entities.
+          """
+      
+          ENTITY_NAME = 'job'
+      
+          def __init__(self, sid, rest):
+              """
+              Job init
+      
+              :type sid: str
+              :param sid: the specified sid
+      
+              :type rest: RestInPeace
+              :param rest: the rest object
+              """
+              super(Job, self).__init__(sid, rest)
+              self._sid = sid
+              self.refresh()
+      
+          @property
+          def sid(self):
+              """
+              Gets sid
+      
+              :rtype: str
+              :return: sid
+              """
+              return self._sid
+      
+          def _get_value(self, key):
+              """
+              Get the property info
+      
+              :type key: str
+              :param key: the specified property, such as request, cursorTime
+      
+              :rtype: can be bool, int, string, list, dict, None
+              :return: property info or None if key not exist
+              """
+              self.refresh()
+              if (key not in self._content_dict) or (
+                      self._content_dict[key] == 'none'):
+                  return None
+              else:
+                  return self._content_dict[key]
+      
+          def is_done(self):
+              """
+              whether the job is done or not
+      
+              :rtype: bool
+              :return: return True if the job is done
+              """
+              return self._get_value('isDone')
+      
+          def is_failed(self):
+              """
+              whether the job is failed or not
+      
+              :rtype: bool
+              :return: return True if the job is done
+              """
+              return self._get_value('isFailed')
+      
+          def is_finalized(self):
+              """
+              whether the job is finalized or not
+      
+              :rtype: bool
+              :return: return True if the job is finalized
+              """
+              return self._get_value('isFinalized')
+      
+          def is_saved(self):
+              """
+              whether the job is saved or not
+      
+              :rtype: bool
+              :return: return True if the job is saved
+              """
+              return self._get_value('isSaved')
+      
+          def is_paused(self):
+              """
+              whether the job is paused or not
+      
+              :rtype: bool
+              :return: return True if the job is paused
+              """
+              return self._get_value('isPaused')
+      
+          def is_event_streaming(self):
+              """
+              whether event is streaming or not
+      
+              :rtype: bool
+              :return: True if streaming
+              """
+              return self._get_value('eventIsStreaming')
+      
+          def is_result_streaming(self):
+              """
+              whether the result is streaming or not
+      
+              :rtype: bool
+              :return: return True if the job is streaming
+              """
+              return self._get_value('resultIsStreaming')
+      
+          def is_preview_enabled(self):
+              """
+              whether the preview is enabled or not
+      
+              :rtype: bool
+              :return: return True if the preview is enabled
+              """
+              return self._get_value('isPreviewEnabled')
+      
+          def is_event_truncated(self):
+              """
+              Weather event is truncated or not
+      
+              :rtype: bool
+              :return: True if event is truncated
+              """
+              return self._get_value('eventIsTruncated')
+      
+          def is_saved_search(self):
+              """
+              Weather is saved search or not
+      
+              :rtype: bool
+              :return: True if is saved search
+              """
+              return self._get_value('isSavedSearch')
+      
+          def is_zombie(self):
+              """
+              Weather is zombie or not
+      
+              :rtype: bool
+              :return: True if is zombie
+              """
+              return self._get_value('isZombie')
+      
+          @property
+          def event_count(self):
+              """
+              Get event count
+      
+              :rtype: int
+              :return: event count
+              """
+              return self._get_value('eventCount')
+      
+          @property
+          def result_count(self):
+              """
+              Get result count
+      
+              :rtype: int
+              :return: result count
+              """
+              return self._get_value('resultCount')
+      
+          @property
+          def scan_count(self):
+              """
+              Get scan count
+      
+              :rtype: int
+              :return: scan count
+              """
+              return self._get_value('scanCount')
+      
+          @property
+          def event_available_count(self):
+              """
+              Get event available count
+      
+              :rtype: int
+              :return: event available count
+              """
+              return self._get_value('eventAvailableCount')
+      
+          @property
+          def ttl(self):
+              """
+              Get ttl value
+      
+              :rtype: int
+              :return: ttl value
+              """
+              return self._get_value('ttl')
+      
+          @ttl.setter
+          def ttl(self, value):
+              """
+              Set ttl value
+      
+              :type value: int
+              :param value: ttl time value in seconds
+              """
+              self.logger.info("Setting job %s TTL to: %s" % (self.sid, value))
+              self.edit(sub_endpoint='control', action="setttl", ttl=value)
+      
+          @property
+          def priority(self):
+              """
+              Get priority value
+      
+              :rtype: int
+              :return: priority value
+              """
+              return self._get_value('priority')
+      
+          @priority.setter
+          def priority(self, value):
+              """
+              Set priority value
+              :type value: int
+              :param value: priority value
+              """
+              self.logger.info(
+                  "Setting priority of job %s to: %s" % (self.sid, value))
+              resp, content = self.edit(sub_endpoint='control',
+                                        action="setpriority", priority=value)
+              assert ("The search job's priority was changed" in
+                      json.loads(content)['messages'][0]['text'])
+      
+          @property
+          def request(self):
+              """
+              Get job request info
+      
+              :rtype: dict
+              :return: job request info
+              """
+              return self._get_value('request')
+      
+          @property
+          def cursor_time(self):
+              """
+              Get cursor time
+      
+              :rtype: unicode
+              :return: cursor time
+              """
+              return self._get_value('cursorTime')
+      
+          @property
+          def messages(self):
+              """
+              Get job messages info
+      
+              :rtype: list
+              :return: job messages info
+              """
+              return self._get_value('messages')
+      
+          @property
+          def keywords(self):
+              """
+              Get job keywords info
+      
+              :rtype: unicode
+              :return: job keywords info
+              """
+              return self._get_value('keywords')
+      
+          @property
+          def error(self):
+              """
+              Get error info
+      
+              :rtype: None or unicode
+              :return: None if no error else error info
+              """
+              return self._get_value('error')
+      
+          @property
+          def earliest_time(self):
+              """
+              Get earliest time info
+      
+              :rtype: unicode
+              :return: earliest time info
+              """
+              return self._get_value('earliestTime')
+      
+          @property
+          def latest_time(self):
+              """
+              Get latest time info
+      
+              :rtype: None or unicode
+              :return: None if no latest time info else latest time info
+              """
+              return self._get_value('latestTime')
+      
+          @property
+          def run_duration(self):
+              """
+              Get run duration time
+      
+              :rtype: float
+              :return: run duration time in seconds
+              """
+              return self._get_value('runDuration')
+      
+          @property
+          def event_search(self):
+              """
+              Get event search info
+      
+              :rtype: unicode
+              :return: event search info
+              """
+              return self._get_value('eventSearch')
+      
+          @property
+          def event_sorting(self):
+              """
+              Get event sort info
+      
+              :rtype: None or unicode
+              :return: None if sort is none else sort info
+              """
+              return self._get_value('eventSorting')
+      
+          @property
+          def report_search(self):
+              """
+              Get report search info
+      
+              :rtype: unicode
+              :return: report search info
+              """
+              return self._get_value('reportSearch')
+      
+          @property
+          def remote_search(self):
+              """
+              Get remote search info
+      
+              :rtype: unicode
+              :return: remote search info
+              """
+              return self._get_value('remoteSearch')
+      
+          @property
+          def label(self):
+              """
+              Get label info
+      
+              :rtype: unicode
+              :return: label info
+              """
+              return self._get_value('label')
+      
+          @property
+          def dispatch_state(self):
+              """
+              Get dispatch state
+      
+              :rtype: unicode
+              :return: label info
+              """
+              return self._get_value('dispatchState')
+      
+          @property
+          def search_providers(self):
+              """
+              Get search providers info
+      
+              :rtype: list
+              :return: search proviers info
+              """
+              return self._get_value('searchProviders')
+      
+          @property
+          def status_buckets(self):
+              """
+              Get status buckets count
+      
+              :rtype: int
+              :return: status buckets count
+              """
+              return self._get_value('statusBuckets')
+      
+          @property
+          def done_progress(self):
+              """
+              Get done progress count
+      
+              :rtype: int
+              :return: done progress count
+              """
+              return self._get_value('doneProgress')
+      
+          @deprecated_by('wait_for_count')
+          def wait_for_result_count(self, count, timeout=60, frequency=0.5):
+              """
+              Wait for result count matches expected, can >= expected.
+              Don't using it directly for check purpose, just using this to make sure
+              certain condition met
+              For example, in real-time search, a certain number get and can execute
+              next step
+      
+              :type count: int
+              :param count: the expected result count
+              :type timeout: int
+              :param timeout: timeout in seconds
+              :type frequency: float
+              :param frequency: time interval to check the result
+              """
+              def wait_for_condition():
+                  return self._get_value("resultCount") >= count
+      
+              poll_for_condition(
+                  wait_for_condition, timeout=timeout, frequency=frequency,
+                  error_message='Failed to wait for result '
+                                'count >= expected count {}'.format(count))
+      
+          def wait_for_count(self, count, attribute='resultCount', timeout=60,
+                             frequency=0.5):
+              """
+              Wait for count matches expected, can >= expected.
+              Don't using it directly for check purpose, just using this to make sure
+              certain condition met
+              For example, in real-time search, a certain number get and can execute
+              next step
+      
+              :type count: int
+              :param count: the expected result count
+              :type attribute: string
+              :param attribute: expected attribute, such as eventCount, resultCount
+              :type timeout: int
+              :param timeout: timeout in seconds
+              :type frequency: float
+              :param frequency: time interval to check the result
+              :rtype: Job
+              :return: the job itself
+              """
+      
+              poll_for_condition(
+                  lambda: self._get_value(attribute) >= count, timeout=timeout,
+                  frequency=frequency,
+                  error_message='Failed to wait for {} >= expected count {}'.format(
+                      attribute, count))
+              return self
+      
+          def wait(self, content_attribute='isDone', attribute_value=True,
+                   timeout=5400, frequency=1):
+              """
+              Wait for job to be done
+      
+              :type content_attribute: string
+              :param content_attribute: attribute type, such as isDone, isSaved
+              :type attribute_value: object, can be bool, string
+              :param attribute_value: attribute value
+              :type timeout: int
+              :param timeout: timeout in seconds
+              :type frequency: float
+              :param frequency: time interval to check the result
+              :rtype: Job
+              :return: the job itself
+              """
+              def wait_for_condition():
+                  self.logger.debug(
+                      "Waiting for job's attribute {} to be {}.".format(
+                          content_attribute, attribute_value))
+                  if self.content.get(content_attribute) == attribute_value:
+                      return True
+                  else:
+                      return False
+      
+              poll_for_condition(
+                  wait_for_condition, timeout=timeout, frequency=frequency,
+                  error_message=(
+                      "Failed to wait for job's attribute '{}' to be '{}' after "
+                      "'{}' second(s) with a {} second(s) polling interval."
+                      "".format(
+                          content_attribute, attribute_value, timeout, frequency)))
+      
+              return self
+      
+          def cancel(self):
+              """
+              Cancel job
+              """
+              self.logger.info("Cancelling job, SID: {}".format(self.sid))
+              resp, content = self.edit(sub_endpoint='control', action="cancel")
+              assert "cancelled" in json.loads(content)['messages'][0]['text']
+      
+          def disable_preview(self):
+              """
+              Disable preview
+              """
+              self.logger.info("Disabling preview for job, SID: {}".format(self.sid))
+              resp, content = self.edit(sub_endpoint='control',
+                                        action="disablepreview")
+              assert "preview disabled" in json.loads(content)['messages'][0]['text']
+      
+          @deprecated_by('edit')
+          def update_search(self, *args, **kwargs):
+              """
+              Update search
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+              """
+              self.edit(*args, **kwargs)
+      
+          def get_events(self, *args, **kwargs):
+              """
+              Get events info
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+      
+              :rtype: Results Object instance
+              :return: events info
+              """
+              kwargs['segmentation'] = 'none'
+              resp, content = self._get(sub_endpoint='events', *args, **kwargs)
+              return _build_results_from_rest_response(content)
+      
+          def get_events_dict(self, *args, **kwargs):
+              """
+              Get events info
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+      
+              :rtype: list
+              :return: events detail info
+              """
+              kwargs['segmentation'] = 'none'
+              resp, content = self._get(sub_endpoint='events', *args, **kwargs)
+              return _build_results_dict_from_rest_response(content)
+      
+          def get_results(self, *args, **kwargs):
+              """
+              Get results info
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+      
+              :rtype: Results Object instance
+              :return: results detail info
+              """
+              kwargs['segmentation'] = 'none'
+              resp, content = self._get(sub_endpoint='results', *args, **kwargs)
+              return _build_results_from_rest_response(content)
+      
+          def get_results_dict(self, *args, **kwargs):
+              """
+              Get results info
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+      
+              :rtype: list
+              :return: results detail info
+              """
+              kwargs['segmentation'] = 'none'
+              resp, content = self._get(sub_endpoint='results', *args, **kwargs)
+              return _build_results_dict_from_rest_response(content)
+      
+          def enable_preview(self):
+              """
+              Enable preview
+              """
+              self.logger.info("Enabling preview for job, SID: {}".format(self.sid))
+              resp, content = self.edit(
+                  sub_endpoint='control', action="enablepreview")
+              assert "preview enabled" in json.loads(content)['messages'][0]['text']
+      
+          def finalize(self):
+              """
+              finalize job
+              """
+              self.logger.info("Finalizing job, SID: {}".format(self.sid))
+              resp, content = self.edit(sub_endpoint='control', action="finalize")
+              assert "finalized" in json.loads(content)['messages'][0]['text']
+      
+          def pause(self):
+              """
+              Pause job
+              """
+              self.logger.info("Pausing job, SID: {}".format(self.sid))
+              resp, content = self.edit(sub_endpoint='control', action="pause")
+              assert "paused" in json.loads(content)['messages'][0]['text']
+      
+          def unpause(self):
+              """
+              Unpause job
+              """
+              self.logger.info("Unpausing job, SID: {}".format(self.sid))
+              resp, content = self.edit(sub_endpoint='control', action="unpause")
+              assert "continued" in json.loads(content)['messages'][0]['text']
+      
+          def resume(self):
+              """
+              Resume job, works the same as unpause
+              """
+              self.logger.info("Resuming job, SID: {}".format(self.sid))
+              resp, content = self.edit(sub_endpoint='control', action="unpause")
+              assert "continued" in json.loads(content)['messages'][0]['text']
+      
+          def get_preview(self, *args, **kwargs):
+              """
+              Get preview info
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+      
+              :rtype: Results Object instance
+              :return: results preview info
+              """
+              kwargs['segmentation'] = 'none'
+              resp, content = self._get(sub_endpoint='results_preview',
+                                        *args, **kwargs)
+              return _build_results_from_rest_response(content)
+      
+          def get_search_log(self, *args, **kwargs):
+              """
+              Get search log info
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+      
+              :rtype: string
+              :return: search log info
+              """
+              kwargs['segmentation'] = 'none'
+              resp, content = self._get(sub_endpoint='search.log',
+                                        *args, **kwargs)
+              return content
+      
+          def get_summary(self, *args, **kwargs):
+              """
+              Get summary info
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+      
+              :rtype: Results Object instance or None
+              :return: summary detail info or None
+              """
+              kwargs['segmentation'] = 'none'
+              resp, content = self._get(sub_endpoint='summary',
+                                        *args, **kwargs)
+              return (_build_results_from_rest_response(content)
+                      if content != "" else "")
+      
+          def get_timeline(self, *args, **kwargs):
+              """
+              Get timeline info
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+      
+              :rtype: String
+              :return: timeline info
+              """
+              kwargs['segmentation'] = 'none'
+              resp, content = self._get(sub_endpoint='timeline',
+                                        *args, **kwargs)
+              return content
+      
+          def touch(self):
+              """
+              Touch job, extends the expiration time of the search to now + ttl
+              """
+              self.logger.info("Touching job, SID: {}".format(self.sid))
+              resp, content = self.edit(sub_endpoint='control', action="touch")
+              assert "job touched" in json.loads(content)['messages'][0]['text']
+      
+      
+      def _build_results_from_rest_response(response):
+          """
+          Get response content from the REST and return them.
+      
+          :rtype: Results Object
+          :return: Results Object instance
+          """
+          content = json.loads(response)
+          return Results(content)
+      
+      
+      def _build_results_dict_from_rest_response(response):
+          """
+          Get results from the REST and return them.
+      
+          :rtype: list
+          :return: results info
+          """
+          events = json.loads(response)["results"]
+          return events
+      
+    '''
+  }
+  {
+    name: "jobs.py"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      from ...base import Manager
+      from .job import Job
+      import json
+      import time
+      from sharedtestutils.str_utils import normalize_to_str
+      from polling import poll_for_result
+      
+      
+      class Jobs(Manager):
+          """
+          Jobs manager, used to spawn searches
+          """
+      
+          ENTITY_CLASS = Job
+          ENTITY_NAME = Job.ENTITY_NAME
+      
+          def __init__(self, rest):
+              """
+              Jobs init
+      
+              :type rest: RestInPeace
+              :param rest: the rest object
+              """
+              super(Jobs, self).__init__()
+              self._rest = rest
+      
+          def create(self, search, *args, **kwargs):
+              """
+              Create a {entity_name} using the rest endpoint:
+      
+              {rest_endpoint}
+      
+              :type search: str
+              :param search: search string
+      
+              :type kwargs: list
+              :param kwargs: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+      
+              :rtype: Job
+              :return: Job instance
+              """.format(
+                  entity_name=self.ENTITY_NAME,
+                  rest_endpoint=self._rest.URIS[self.ENTITY_NAME].format(
+                      u=normalize_to_str(self._rest._user), a=self._rest._app)
+              )
+              self.logger.info("Creating job with query: %s" % search)
+              resp, content = self._create(search=search, *args, **kwargs)
+              sid = json.loads(content).get('sid')
+              assert sid is not None
+              return Job(sid, self._rest)
+      
+          # Override the default one to use the 'sid' instead
+          # of the 'name' attribute.
+          def all(self, *args, **kwargs):
+      
+              """
+              Get all {entity_name} entity using the rest endpoint:
+              {rest_endpoint}
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+      
+              :rtype: list
+              :return: job instance in list
+              """.format(
+                  entity_name=self.ENTITY_NAME,
+                  rest_endpoint=self._rest.URIS[self.ENTITY_NAME].format(
+                      u=normalize_to_str(self._rest._user), a=self._rest._app)
+              )
+      
+              resp, content = self._all(*args, **kwargs)
+              if 'entry' in json.loads(content):
+                  entries = json.loads(content)['entry']
+                  return [
+                      Job(entry['content']['sid'], self._rest)
+                      for entry in entries]
+              else:
+                  return []
+      
+          def wait_for_stable_event_count(
+                  self, search_string='search *', stable_window=60,
+                  timeout=180, frequency=10, *args, **kwargs):
+              """
+              Waits for stable event count. It's used to decide indexing is done.
+      
+              :type search_string: str
+              :param search_string: search string
+      
+              :type stable_window: int
+              :param stable_window: the seconds of the successive
+                                    event count numbers with the same value
+      
+              :type timeout: int
+              :param timeout: timeout to wait for stable event count
+      
+              :type frequency: int
+              :param frequency: the seconds to wait between successive search jobs
+      
+              :type args: list
+              :param args: additional search job args
+      
+              :type kwargs: dict
+              :param kwargs: additional search job kwargs
+      
+              :rtype: int
+              :return: stable event count
+              """
+              stable_window_since = {}
+              event_count_values = []
+      
+              def check_stable_event_count():
+                  """
+                  Check stable event count
+                  """
+                  event_count = self.create(
+                      search_string, *args, **kwargs).wait().event_count
+                  timestamp = time.time()
+                  event_count_values.append(event_count)
+                  self.logger.info(
+                      'event_count_values: {}'.format(event_count_values))
+      
+                  if (stable_window_since and
+                          stable_window_since['event_count'] == event_count):
+                      # now we reach the candidate end of the window
+                      current_window = int(
+                          timestamp - stable_window_since['timestamp'])
+                      self.logger.info('current window: {}'.format(current_window))
+                      if current_window >= stable_window:
+                          self.logger.info(
+                              "stable event count for search='{s}': {e}".format(
+                                  s=search_string, e=event_count))
+                          return event_count
+                  else:
+                      # reset the start of the window
+                      stable_window_since['event_count'] = event_count
+                      stable_window_since['timestamp'] = timestamp
+      
+                  return None
+      
+              return poll_for_result(
+                  check_stable_event_count, ignore_results=[None],
+                  timeout=timeout, frequency=frequency,
+                  error_message="Failed to wait for stable event count "
+                                "(stable_window={w}) for search: '{s}'".format(
+                                  s=search_string, w=stable_window))
+      
+    '''
+    linesHighlighted: []
+  }
+  {
+    name: "results.py"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      import copy
+      
+      
+      class Results(object):
+          """
+          A class that represents a result set.
+      
+          These results can be represented in two ways; as a list or as a dictionary.
+      
+          The formats are:
+      
+          List::
+              [
+                  {
+                      'field1': value1,
+                      'field2': value2,
+                      ...
+                  },
+      
+                  {
+                      'field2': value3,
+                      'field3': value4,
+                      ...
+                  }
+              ]
+      
+          Dictionary::
+              {
+                  'field1': [value1, None, ...],
+                  'field2': [value2, value3, ...],
+                  'field3': [None, value4, ...],
+                  ...
+              }
+      
+          As you can see each event in the list doesn't have to contain all fields.
+      
+          @ivar _list: The results as a list
+          @ivar _dict_cached: Since creating the dictionary is expensive it's cached.
+                              You should use the _dict property though!
+          """
+      
+          def __init__(self, content_):
+              """
+              Constructor
+      
+              @param content_: The response content
+              @type content_: dict
+              """
+              super(Results, self).__init__()
+      
+              self._list = content_['results']
+              self._messages = content_['messages']
+              self._dict_cache = None
+      
+          def __repr__(self):
+              """
+              Returns a string representation of this object
+      
+              @return: The representation
+              @rtype: str
+              """
+              return 'Results set with {count} result(s)'.format(count=len(self))
+      
+          def get_field(self, field):
+              """
+              Returns the values for the specified field or None if it doesn't exist
+      
+              @param field: The field to get
+              @type field: str
+              @return: A list of values for that field
+              @rtype: list(str)
+              """
+              return self.as_dict.get(field)
+      
+          def __getitem__(self, index):
+              """
+              Returns the specified event as a dictionary.
+      
+              used when doing this:
+                  >>> results[index]
+      
+              @param index: The index to get
+              @type index: int
+              @return: The fields for that event
+              @rtype: dict(str: str)
+              """
+              return self.as_list[index]
+      
+          def get_event(self, index):
+              """
+              Returns the event at the specified index as a dictionary
+      
+              This is an alias for C{__getitem__}
+      
+              @param index: The index to get
+              @type index: int
+              @return: The event at that index
+              @rtype: dict(str: str)
+              """
+              return self[index]
+      
+          def __iter__(self):
+              """
+              Returns an iterator for this result set.
+      
+              The iterator will iterate over each event.
+      
+              This is used when doing
+                  >>> for event in results: ...
+      
+              @return: The iterator
+              @rtype: iterator
+              """
+              return self.as_list.__iter__()
+      
+          def __contains__(self, field):
+              """
+              Checks if the specified field is in this result set.
+      
+              This is equal to doing C{field in results.as_dict}
+      
+              @param field: The field to check
+              @type field: str
+              @return: True if it exists
+              @rtype: bool
+              """
+              return field in self._dict
+      
+          def __len__(self):
+              """
+              Returns the number of events in this result set
+      
+              @return: The event count
+              @rtype: int
+              """
+              return len(self._list)
+      
+          @property
+          def as_dict(self):
+              """
+              This result set as a dictionary. The format is specified in the
+              documentation for the class.
+      
+              This is a copy of the results so you can do whatever you want to do
+              with it.
+      
+              @rtype: dict
+              """
+              return copy.deepcopy(self._dict)
+      
+          @property
+          def as_list(self):
+              """
+              This result set as a list. The format is specified in the documentation
+              for the class
+      
+              This is a copy of the results so you can do whatever you want to do
+              with it.
+      
+              @rtype: list
+              """
+              return copy.deepcopy(self._list)
+      
+          @property
+          def messages(self):
+              """
+              get messages of response content
+      
+              :rtype: list
+              :return: response content messages
+              """
+              return self._messages
+      
+          @property
+          def fields(self):
+              """
+              The fields in this result set as a list.
+      
+              This is a copy of the fields so you can do whatever you want to do with
+              it.
+      
+              @rtype: list
+              """
+              return self._dict.viewkeys()
+      
+          @property
+          def _dict(self):
+              """
+              Returns the results as a dictionary.
+      
+              It caches the results so that the second call is very fast
+      
+              @rtype: dict
+              """
+              if self._dict_cache is None:
+                  self._dict_cache = _list_to_dictionary(self._list)
+              return self._dict_cache
+      
+      
+      def _list_to_dictionary(events):
+          """
+          Converts a list of events to a dictionary of fields.
+      
+          Input format::
+              [
+                  {
+                      'field1': value1,
+                      'field2': value2,
+                      ...
+                  },
+      
+                  {
+                      'field2': value3,
+                      'field3': value4,
+                      ...
+                  },
+      
+                  ...
+              ]
+      
+          Output format::
+              {
+                  'field1': [value1, None, ...],
+                  'field2': [value2, value3, ...],
+                  'field3': [None, value4, ...],
+                  ...
+              }
+      
+          If not all fields are present in every event None will be inserted instead.
+      
+          @param events: The events as a list of dictionaries
+          @type events: list(dict(field(str): value(str)))
+      
+          @return: The events as a dictionary.
+          @rtype: dict(field(str): values(list(str)))
+          """
+          fields = set().union(*(event.viewkeys() for event in events))
+          return {
+              field: [event.get(field, None) for event in events]
+              for field in fields}
+      
+    '''
+    linesHighlighted: []
+  }
+]
+isStarred: false
+isTrashed: false

@@ -1,0 +1,63 @@
+createdAt: "2020-03-17T07:05:01.923Z"
+updatedAt: "2020-03-19T06:08:35.630Z"
+type: "MARKDOWN_NOTE"
+folder: "b52a7c0642d2c6d5f4b4"
+title: "Kubeadm cluster"
+tags: []
+content: '''
+  # Kubeadm cluster
+  - vagrant to create some vms (vagrantfile)
+  - remove network args (on master)
+  ```ruby
+  removing the `$KUBELET_NETWORK_ARGS` in `/etc/systemd/system/kubelet.service.d/10-kubeadm.conf` in all three nodes and start Kubelet
+  ```
+  - enable kubelet
+  ```ruby
+  sudo systemctl enable kubelet && sudo systemctl start kubelet
+  ```
+  - kubeadm init
+  ```ruby
+  sed -i '9s/^/Environment="KUBELET_EXTRA_ARGS=--fail-swap-on=false"\\n/' /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+  
+  sudo kubeadm init --pod-network-cidr 10.244.0.0/16 --apiserver-advertise-address 192.168.205.120
+  
+  journalctl -xeu kubelet
+  ```
+  - config .kube/config
+  ```ruby
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+  ```
+  - install network plugin
+  ```ruby
+  Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
+  https://kubernetes.io/docs/concepts/cluster-administration/addons/
+  
+  kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\\n')"
+  ```
+  - get master token
+  ```
+  kubeadm token list
+  ```
+  - get sha256 hash
+  ```
+  openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'
+  ```
+  - kubeadm join (on worker)
+  ```ruby
+  sudo kubeadm join 192.168.205.120:6443 --token mqgp0h.8kpwdmcucj2x1ppg --discovery-token-ca-cert-hash sha256:1562bb695fc74c81e6ebc91c0338e0fbbeb33b33e50d315f4ca1d3e95a288d53
+  ```
+  - append ip on master/workers
+  ```ruby
+  vim /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+  Environment="KUBELET_EXTRA_ARGS=--node-ip=<worker IP address>
+  systemctl daemon-reload
+  systemctl restart kubelet
+  ```
+'''
+linesHighlighted: [
+  46
+]
+isStarred: false
+isTrashed: false

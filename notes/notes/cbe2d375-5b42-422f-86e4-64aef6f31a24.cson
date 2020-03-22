@@ -1,0 +1,607 @@
+createdAt: "2020-01-09T03:03:35.956Z"
+updatedAt: "2020-01-09T03:03:58.712Z"
+type: "SNIPPET_NOTE"
+folder: "c75bf4e7ed3c2027bb4a"
+title: "rest_wrapper/base"
+tags: []
+description: "rest_wrapper/base"
+snippets: [
+  {
+    linesHighlighted: []
+    name: "base.py"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      import abc
+      import logging
+      import json
+      import contextlib
+      import rip
+      import six
+      
+      LOGGER = logging.getLogger(__name__)
+      
+      
+      def validate_success(func):
+          """
+          Wrap any method that has the signature where the
+          method returns a response and content tuple, and verifies that the
+          response was successful.
+      
+          :type func: method
+          :param func: the method that this decorator is wrapping.
+      
+          :rtype: method
+          :return: the new decorator method wrapping the original method.
+          """
+      
+          def _decorator(self, *args, **kwargs):
+              """
+              Asserts that the response returned from the function is successful
+      
+              :rtype: (response, content)
+              :return:
+              """
+              resp, content = func(self, *args, **kwargs)
+              # resp should always be a dict here.
+              status = int(resp['status'])
+      
+              if not (200 <= status < 300):
+                  error_message = (
+                      "Calling '{func}' with args '{args}', and kwargs '{kwargs}', "
+                      "{entity_name}"
+                      "was not successful.\\n"
+                      "Response: {resp}\\nContent: {cont}\\n".format(
+                          func=func.__name__, args=args, kwargs=kwargs,
+                          entity_name=("" if not hasattr(self, "_name")
+                                       else "on '{}' ".format(self._name)),
+                          resp=resp, cont=content))
+                  raise RestResponseError(resp, content, error_message)
+      
+              return resp, content
+      
+          return _decorator
+      
+      
+      class Manager(six.with_metaclass(abc.ABCMeta, object)):
+          """
+          The base manager class for REST endpoints
+          """
+          ENTITY_CLASS = None
+          ENTITY_NAME = None
+      
+          def __init__(self):
+              """
+              Manager __init__
+      
+              Initialize the logger.
+              """
+              self.logger = logging.getLogger(self.__class__.__name__)
+      
+          @property
+          def rest(self):
+              """
+              Get rest instance
+      
+              :return: rest instance
+              """
+              return self._rest
+      
+          @validate_success
+          def _create(self, *args, **kwargs):
+              """
+              Create wrapper for only successful creates.
+      
+              :type kwargs: list
+              :param kwargs: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+              """
+              kwargs['output_mode'] = 'json'
+              return getattr(
+                  self.rest, 'create_{}'.format(self.ENTITY_NAME))(*args, **kwargs)
+      
+          @abc.abstractmethod
+          def create(self):
+              """
+              Required method to implement for managers
+      
+              Create method should have all the required params for the endpoint
+              be require arguments.
+              """
+              pass
+      
+          @validate_success
+          def _all(self, *args, **kwargs):
+              """
+              Get all wrapper for only successful get alls.
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+              """
+              kwargs['output_mode'] = 'json'
+              return getattr(
+                  self._rest, 'get_all_{}'.format(self.ENTITY_NAME))(*args, **kwargs)
+      
+          def all(self, key="name", *args, **kwargs):
+              """
+              Get all {entity_name} entity using the rest endpoint:
+              {rest_endpoint}
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+      
+              :rtype: list
+              :return: ENTITY_CLASS instances in list
+              """.format(
+                  entity_name=self.ENTITY_NAME,
+                  rest_endpoint=self._rest.URIS[self.ENTITY_NAME].format(
+                      u=self._rest._user, a=self._rest._app)
+              )
+      
+              resp, content = self._all(*args, **kwargs)
+              if 'entry' in json.loads(content):
+                  entries = json.loads(content)['entry']
+                  return [
+                      self.ENTITY_CLASS(entry[key], self._rest)
+                      for entry in entries]
+              else:
+                  return []
+      
+          @validate_success
+          def _get(self, name, *args, **kwargs):
+              """
+              Get a {entity_name} using the rest endpoint:
+              {rest_endpoint}
+      
+              :type name: str
+              :param name: entity name
+      
+              :type kwargs: list
+              :param kwargs: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+      
+              :rtype: dict
+              :return: (response, content) pair from the rest call
+              """.format(
+                  entity_name=self.ENTITY_NAME,
+                  rest_endpoint=self._rest.URIS[self.ENTITY_NAME].format(
+                      u=self._rest._user, a=self._rest._app)
+              )
+      
+              kwargs['output_mode'] = 'json'
+              return getattr(self._rest, 'get_{}'.format(self.ENTITY_NAME))(
+                  name, *args, **kwargs)
+      
+          def get(self, name, *args, **kwargs):
+              """
+              Get a {entity_name} using the rest endpoint:
+              {rest_endpoint}
+      
+              :type name: str
+              :param name: entity name
+      
+              :type kwargs: list
+              :param kwargs: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+      
+              :rtype: ENTITY_CLASS
+              :return: ENTITY_CLASS instance
+              """.format(
+                  entity_name=self.ENTITY_NAME,
+                  rest_endpoint=self._rest.URIS[self.ENTITY_NAME].format(
+                      u=self._rest._user, a=self._rest._app)
+              )
+      
+              kwargs['output_mode'] = 'json'
+              self._get(name, *args, **kwargs)
+              return self.ENTITY_CLASS(name, self._rest)
+      
+      
+      class Collection(six.with_metaclass(abc.ABCMeta, object)):
+          """
+          A Collection metaclass that specifies what functions a collection in the
+          framework must implement.
+          """
+      
+          def __call__(self):
+              """
+              Return items info when called
+      
+              :rtype: up to the subclass, can be list, map or of any other kind
+              :return: a collection of all the contained objects
+              """
+              return self.items()
+      
+          def __len__(self):
+              """
+              Return the length of items when call len()
+      
+              :rtype: int
+              :return: length of collections
+              """
+              return len(self.items())
+      
+          def __iter__(self):
+              """
+              Return item info in items
+      
+              :rtype: up to the subclass
+              :return: the contained object
+              """
+              for item in self.items():
+                  yield item
+      
+          @abc.abstractmethod
+          def items(self):
+              """
+              Return a collection of all the contained objects. It is up to the
+              subclass to decide whether this collection is a list, map or of any
+              other kind.
+              """
+      
+          @abc.abstractmethod
+          def __contains__(self, item):
+              """
+              Return boolean whether item is contained in Collection.
+      
+              :type item: str
+              :param item: The item which is checked if contained.
+      
+              :rtype: bool
+              :return: True or False
+              """
+      
+      
+      class Entity(six.with_metaclass(abc.ABCMeta, object)):
+          """
+          The base class for REST endpoint entity object.
+          These objects follow common rest endpoint behaviors.
+          """
+          ENTITY_NAME = None
+      
+          def __init__(self, entity_name, rest):
+              """
+              Entity __init__
+      
+              :type entity_name: string
+              :param entity_name: entity name
+      
+              :type rest: RestInPeace
+              :param rest: the rest object
+              """
+              self.logger = logging.getLogger(self.__class__.__name__)
+              self._rest = rip.RESTInPeace(rest.conn, rest._user, rest._app)
+              self._name = entity_name
+              self._entry_dict = {}
+              self._content_dict = {}
+              self._always_refresh = True
+              self._sub_endpoint = ""
+      
+          @property
+          def rest(self):
+              """
+              Get rest instance
+      
+              :return: rest instance
+              """
+              return self._rest
+      
+          @validate_success
+          def _get(self, sub_endpoint="", *args, **kwargs):
+              """
+              Get the entity.
+      
+              :type sub_endpoint: string
+              :param sub_endpoint: sub endpoint info
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+              """
+              kwargs['output_mode'] = 'json'
+              return getattr(self.rest, 'get_{}'.format(self.ENTITY_NAME))(
+                  self._name, sub_endpoint, *args, **kwargs)
+      
+          @validate_success
+          def edit(self, sub_endpoint="", *args, **kwargs):
+              """
+              Edit the entity with the given arguments
+      
+              :type sub_endpoint: string
+              :param sub_endpoint: sub endpoint info
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+              """
+              kwargs['output_mode'] = 'json'
+              return getattr(self.rest, "edit_{}".format(self.ENTITY_NAME))(
+                  self._name, sub_endpoint, *args, **kwargs)
+      
+          @validate_success
+          def delete(self, sub_endpoint="", *args, **kwargs):
+              """
+              Delete the entity with the given arguments
+      
+              :type sub_endpoint: string
+              :param sub_endpoint: sub endpoint info
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+              """
+              kwargs['output_mode'] = 'json'
+              return getattr(self.rest, "delete_{}".format(self.ENTITY_NAME))(
+                  self._name, sub_endpoint, *args, **kwargs)
+      
+          def exists(self, sub_endpoint="", *args, **kwargs):
+              """
+              Returns True if the entity still exists
+      
+              :type sub_endpoint: string
+              :param sub_endpoint: sub endpoint info
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+              """
+              kwargs['output_mode'] = 'json'
+              return getattr(self.rest, "check_{}".format(self.ENTITY_NAME))(
+                  self._name, sub_endpoint, *args, **kwargs)
+      
+          def refresh(self):
+              """
+              This serves as a method to refresh the entry data by
+              always performing a GET to the endpoint
+              """
+              if self._always_refresh:
+                  try:
+                      resp, content = self._get(self._sub_endpoint)
+                      self._entry_dict = json.loads(content)['entry'][0]
+                      self._content_dict = self._entry_dict['content']
+                  except AssertionError as aerr:
+                      # cleaning out the _dicts so that there won't be problems with
+                      # remnant data left behind if the entity is not retrievable.
+                      self._entry_dict = {}
+                      self._content_dict = {}
+                      raise aerr
+      
+          @contextlib.contextmanager
+          def ignore_refresh(self):
+              """
+              Context manager to turn off the auto refresh when fetching attributes.
+              """
+              # first update the entity then pause refresh.
+              self.refresh()
+              self._always_refresh = False
+              try:
+                  yield
+              finally:
+                  self._always_refresh = True
+      
+          @property
+          def content(self):
+              """
+              Get content info
+      
+              :rtype: dict
+              :return: response content info
+              """
+              self.refresh()
+              return self._content_dict
+      
+          @property
+          def acl(self):
+              """
+              Retrieve the entity's acl info.
+              Ensure that the acl attributes are not written by
+              always reloading the entity's acl.
+      
+              :rtype: dict
+              :return: dict that represents the entity's acl.
+              """
+              self.refresh()
+              return self._entry_dict.get("acl")
+      
+          @property
+          def author(self):
+              """
+              Retrieve the entity's author info.
+      
+              :rtype: string
+              :return: the entity's author.
+              """
+              self.refresh()
+              return self._entry_dict.get("author")
+      
+          @property
+          def id(self):
+              """
+              Retrieve the entity's id
+      
+              :rtype: string
+              :return: the entity's id.
+              """
+              self.refresh()
+              return self._entry_dict.get('id')
+      
+          @property
+          def name(self):
+              """
+              Retrieve the entity's name
+      
+              :rtype: string
+              :return: the entity's name.
+              """
+              self.refresh()
+              return self._entry_dict.get('name')
+      
+          @property
+          def links(self):
+              """
+              Retrieve the entity's links info.
+      
+              :rtype: dict
+              :return: the dict that represents the entity's links.
+              """
+              self.refresh()
+              return self._entry_dict.get('links')
+      
+          def share(self, perms_read, perms_write, sharing,
+                    owner=None, sub_endpoint=""):
+              """
+              Share the entity to the desired level.
+      
+              :type perms_read: string
+              :param perms_read: the read permissions by roles. '*' for all.
+      
+              :type perms_write: string
+              :param perms_write: the write permissions by roles. '*' for all.
+      
+              :type sharing: string
+              :param sharing: user|app|global sharing level.
+      
+              :type owner: string
+              :param owner: Defaults to the original entity author
+      
+              :type sub_endpoint: string
+              :param sub_endpoint: sub endpoint info
+              """
+      
+              owner = owner if owner is not None else self.acl.get("owner")
+      
+              perms = {
+                  'perms.read': perms_read,
+                  'perms.write': perms_write,
+                  'sharing': sharing,
+                  'owner': owner
+              }
+      
+              if sharing.lower() not in ("user", "app", "global"):
+                  raise ValueError(
+                      "Invalid sharing level, '{}', please use "
+                      "'user', 'app', or 'global'".format(sharing))
+              sub_ep = ("{}/acl".format(sub_endpoint)
+                        if ((sub_endpoint == '') or
+                            (not sub_endpoint.endswith('/')))
+                        else "{}acl".format(sub_endpoint))
+              return self.edit(sub_ep, **perms)
+      
+          def reload(self, sub_endpoint="", *args, **kwargs):
+              """
+              Reload the endpoint using the _reload endpoint
+      
+              :type sub_endpoint: string
+              :param sub_endpoint: sub endpoint info
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+              """
+              sub_ep = ("{}/_reload".format(sub_endpoint)
+                        if ((sub_endpoint == '') or
+                            (not sub_endpoint.endswith('/')))
+                        else "{}_reload".format(sub_endpoint))
+              return self._get(sub_ep, *args, **kwargs)
+      
+          def disable(self, sub_endpoint="", *args, **kwargs):
+              """
+              disable the endpoint, need restart to take effective
+      
+              :type sub_endpoint: string
+              :param sub_endpoint: sub endpoint info
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+              """
+              sub_ep = ("{}/disable".format(sub_endpoint)
+                        if ((sub_endpoint == '') or
+                            (not sub_endpoint.endswith('/')))
+                        else "{}disable".format(sub_endpoint))
+              return self.edit(sub_ep, *args, **kwargs)
+      
+          def enable(self, sub_endpoint="", *args, **kwargs):
+              """
+              enable the endpoint
+      
+              :type sub_endpoint: string
+              :param sub_endpoint: sub endpoint info
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+              """
+              sub_ep = ("{}/enable".format(sub_endpoint)
+                        if ((sub_endpoint == '') or
+                            (not sub_endpoint.endswith('/')))
+                        else "{}enable".format(sub_endpoint))
+              return self.edit(sub_ep, *args, **kwargs)
+      
+      
+      class RestResponseError(RuntimeError):
+          """
+          This exception is raised when response code is not in 200-299
+          Use this to provide resp and content info when request fails
+          example:
+          try:
+              some_rest_operations
+          except RestResponseError as e:
+              assert int(e.resp["status"]) == 400
+              assert e.content["messages"][0]["text"] == xxx
+          """
+          def __init__(self, resp, content, message):
+              """
+              Init with resp, content and message info
+      
+              :type resp: httplib2.Response
+              :param resp: response info
+              :type content: json string
+              :param content: response content info
+              :type message: string
+              :param message: error message
+              """
+              super(RestResponseError, self).__init__(resp, content, message)
+              self.resp = resp
+              self.content = json.loads(content)
+              self.message = message
+      
+          def __str__(self):
+              """
+              Return the message info
+              """
+              return self.message
+      
+    '''
+  }
+]
+isStarred: false
+isTrashed: false

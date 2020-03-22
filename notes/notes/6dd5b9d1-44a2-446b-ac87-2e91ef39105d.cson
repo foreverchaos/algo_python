@@ -1,0 +1,39 @@
+createdAt: "2020-03-04T11:39:27.025Z"
+updatedAt: "2020-03-12T07:21:34.667Z"
+type: "MARKDOWN_NOTE"
+folder: "2ba4b3be784e73eaaefb"
+title: "Locust practice"
+tags: []
+content: '''
+  ## Locust practice
+  
+  - locust grpc dockerfile
+  ```ruby
+  FROM locustio/locust
+  USER root
+  RUN apk add --update \\
+          build-base \\
+          linux-headers \\
+          py3-cffi \\
+          py3-cryptography \\
+          libffi-dev \\
+          bash \\
+          vim \\
+          curl \\
+          ca-certificates \\
+      && update-ca-certificates \\
+      && pip3 install grpcio bcrypt influxdb grpcio-tools \\
+      && rm -rf /var/cache/apk/*
+  ENV PYTHONPATH "${PYTHONPATH}:/locust_grpc_test"
+  CMD ["./docker_start.sh"]
+  ```
+  ```
+  docker run --volume /c/louisMountDocker/locust_test:/mnt/locust 
+  -e LOCUSTFILE_PATH=/mnt/locust/locust_package/locustfile.py 
+  -e TARGET_URL=https://github.com -e LOCUST_OPTS="--clients=100 --no-web --run-time=600" locust/locust_tmp
+  ```
+  
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

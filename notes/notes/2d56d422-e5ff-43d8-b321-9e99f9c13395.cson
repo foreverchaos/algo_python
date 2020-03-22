@@ -1,0 +1,62 @@
+createdAt: "2019-08-08T08:49:50.415Z"
+updatedAt: "2019-08-08T08:50:04.033Z"
+type: "SNIPPET_NOTE"
+folder: "a8a34bf81446463f9ca3"
+title: "dynamic inherited"
+tags: []
+description: "dynamic inherited"
+snippets: [
+  {
+    linesHighlighted: []
+    name: "test.py"
+    mode: "Python"
+    content: '''
+      class ImageJPG(Image):
+          \'''Fake JPG image class that parses a file in a given way.\'''
+      
+          @property
+          def format(self): return 'Joint Photographic Experts Group'
+      
+          @property
+          def data(self):
+              with self.file_obj as f:
+                  f.seek(-50)
+                  return f.read(12)
+      
+      
+      class ImagePNG(Image):
+          \'''Fake PNG image class that parses a file in a different way.\'''
+      
+          @property
+          def format(self): return 'Portable Network Graphics'
+      
+          @property
+          def data(self):
+              with self.file_obj as f:
+                  f.seek(10)
+                  return f.read(12)
+      
+      
+      class ImageZIP(object):
+          def __new__(cls, path):
+              if cls is ImageZIP:
+                  format = re.findall('(...)\\.gz', path)[-1]
+                  if format == 'jpg':
+                      target = type("CompressedJPG", (ImageZIP, ImageJPG), {})(path)
+                      return target
+                  if format == 'png':
+                      target = type("CompressedPNG", (ImageZIP, ImagePNG), {})(path)
+                      return target
+              else:
+                  return object.__new__(cls)
+      
+      
+      if __name__ == '__main__':
+          image = ImageZIP('sfsdfpng.gz')
+          print image
+      
+    '''
+  }
+]
+isStarred: false
+isTrashed: false

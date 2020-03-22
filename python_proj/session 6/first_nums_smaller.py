@@ -19,7 +19,7 @@ def get_first(nums, target):
     low, high = 0, len(nums) - 1
 
     def mid_search(l, h):
-        mid = l + (h - l) / 2
+        mid = l + (h - l) // 2
         if low >= high:
             return None
         if nums[mid] > target:

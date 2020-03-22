@@ -1,0 +1,64 @@
+createdAt: "2020-01-14T08:44:42.747Z"
+updatedAt: "2020-01-14T08:45:58.154Z"
+type: "SNIPPET_NOTE"
+folder: "c75bf4e7ed3c2027bb4a"
+title: "theatre"
+tags: []
+description: "theatre"
+snippets: [
+  {
+    linesHighlighted: []
+    name: "decorators"
+    mode: "Python"
+    content: '''
+      import inspect
+      
+      
+      def puppet(name=None, plural_name=None):
+          """
+          The decorator for puppet class for additional post class initialization
+          e.g. @puppet('mc', 'mcs') for MonitoringConsole puppet, we can have the
+          the following usages:
+          >>> stage.mcs
+          >>> stage.cluster_masters[0].as_mc
+      
+          :type name: str
+          :param name: the specified singular name
+      
+          :type plural_name: str
+          :param plural_name: the specified plural name
+      
+          :return: the puppet class
+          """
+          if inspect.isclass(name):
+              puppet_class = name
+              puppet_class.generate_accessors()
+              return puppet_class
+          else:
+              def wrapper(puppet_class):
+                  """
+                  The decorator for puppet class
+      
+                  :param puppet_class: the puppet class
+                  :return: the puppet class
+                  """
+                  puppet_class.generate_accessors(name, plural_name)
+                  return puppet_class
+      
+              return wrapper
+      
+      
+      def puppeteer(puppeteer_class):
+          """
+          The decorator for puppeteer class for additional post class initialization
+      
+          :return: the puppeteer class
+          """
+          puppeteer_class.generate_accessors()
+          return puppeteer_class
+      
+    '''
+  }
+]
+isStarred: false
+isTrashed: false

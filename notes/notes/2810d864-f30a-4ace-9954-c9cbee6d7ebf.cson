@@ -1,0 +1,53 @@
+createdAt: "2020-03-13T07:47:31.406Z"
+updatedAt: "2020-03-17T10:04:22.252Z"
+type: "MARKDOWN_NOTE"
+folder: "b52a7c0642d2c6d5f4b4"
+title: "kubectl"
+tags: []
+content: '''
+  # kubectl
+  
+  - view config (~/.kube)
+  ```ruby
+  kubectl config view
+  ```
+  - get nodes
+  ```ruby
+  kubectl get node
+  
+  # output to xxx
+  kubectl get node -o wide
+  kubectl get node -o json
+  ```
+  - node label
+  ```ruby
+  kubectl get node --show-labels
+  
+  # set label
+  kubectl label node <ip> env=test
+  
+  # remove label
+  kubectl label node <ip> env-
+  
+  # overwrite label
+  kubectl label node <ip> env=test --overwrite
+  
+  # set role = master
+  kubectl label node <ip> node-role.kubernetes.io/master=
+  ```
+  - see all cluster context
+  ```
+  kubectl config get-contexts
+  ```
+  - set current context
+  ```
+  kubectl config set current-context <name>
+  ``` 
+  - decription of node
+  ```
+  kubectl describe node <ip>
+  ```
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

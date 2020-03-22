@@ -1,0 +1,154 @@
+createdAt: "2020-01-28T12:51:23.222Z"
+updatedAt: "2020-03-04T09:45:21.941Z"
+type: "MARKDOWN_NOTE"
+folder: "d38eb8d5dfbe6ecb1827"
+title: "Docker Compose"
+tags: []
+content: '''
+  # Docker Compose
+  - Services: containers, could define volumes, network
+  ```yaml
+  services:
+    db:
+      image: postgres:9.4
+      volumes:
+        - "db-data: /var/lib/postgresql/data"
+      networks:
+        - back-tier
+  
+  equal to: docker run -d --network back-tier -v db-data: /var/lib/postgresql/data postgres:9.4
+  
+  services:
+    worker:
+      build: ./worker
+      links:
+        - db
+        - redis
+      networks:
+        - back-tier
+  ```
+  
+  - complicated example
+  ```yaml
+  version: '3'
+  services:
+    wordpress:
+      image: wordpress
+      ports:
+        - 8080:80
+      environment:
+        WORDPRESS_DB_HOST: mysql
+        WORDPRESS_DB_PASSWORD: root
+      network:
+        - my-bridge
+    mysql:
+      image: mysql
+      environment:
+        MYSQL_ROOT_PASSWORD: root
+        MYSQL_DATABASE: wordpress
+      volumes:
+        - mysql-data:/var/lib/mysql
+      network:
+        - my-bridge
+  volumes:
+    mysql-data:
+  
+  networks:
+   my-bridge:
+    driver: bridge
+  ```
+  
+  - [flask/redis example](https://docker_practice.gitee.io/zh-cn/compose/usage.html)
+  > flask app
+  ```python
+  from flask import Flask
+  from redis import Redis
+  
+  app = Flask(__name__)
+  redis = Redis(host='redis', port=6379)
+  
+  @app.route('/')
+  def hello():
+      count = redis.incr('hits')
+      return 'Hello World! this page has been access {} times.\\n'.format(count)
+  
+  if __name__ == "__main__":
+      app.run(host="0.0.0.0", debug=True)
+  ```
+  > Dockerfile
+  ```
+  FROM python:3.6-alpine
+  ADD . /code
+  WORKDIR /code
+  RUN pip install redis flask
+  CMD ["python", "app.py"]
+  ```
+  > docker-compse.yml
+  ```yml
+  version: '3'
+  services:
+  
+    web:
+      build:
+       context: .
+       dockerfile: Dockerfile
+      ports:
+       - "8080:5000"
+      volumes:
+       - /c/louisMountDocker/flask_code:/code
+    redis:
+      image: "redis:alpine"
+  ```
+  > run *docker-compose up*
+  
+  - docker compose scale
+  ```python
+  # create 3 container of web for load balance
+  docker-compose up --scale web=3
+  ```
+  
+  > telegraf, grafana, influxdb
+  ```yml
+  influxdb:
+    image: influxdb:latest
+    container_name: influxdb
+    ports:
+      - "8083:8083"
+      - "8086:8086"
+      - "8090:8090"
+    environment:
+      - INFLUXDB_DATA_ENGINE=tsm1
+      - INFLUXDB_REPORTING_DISABLED=false   
+    volumes:
+      # Data persistency
+      # sudo mkdir -p /c/louisMountDocker/influxdb/data
+      - /c/louisMountDocker/influxdb/data:/var/lib/influxdb
+  telegraf:
+    image: telegraf:latest
+    container_name: telegraf
+    links:
+      - influxdb
+    volumes:
+      - /c/louisMountDocker/telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+  
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,briangann-gauge-panel,natel-plotly-panel,grafana-simple-json-datasource
+    user: "0"
+    links:
+      - influxdb
+    volumes:
+      # Data persistency
+      # sudo mkdir -p /srv/docker/grafana/data; chown 472:472 /srv/docker/grafana/data
+      - /c/louisMountDocker/grafana/data:/var/lib/grafana
+  ```
+  > telegraf configuration
+  [telegraf.conf](:storage\\da635353-ab4a-447c-b987-bb87adf9812c\\88817dd1.conf)
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

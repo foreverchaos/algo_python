@@ -1,0 +1,483 @@
+createdAt: "2020-01-09T02:58:25.335Z"
+updatedAt: "2020-01-09T03:01:10.309Z"
+type: "SNIPPET_NOTE"
+folder: "c75bf4e7ed3c2027bb4a"
+title: "rest_wrapper/conf"
+tags: []
+description: '''
+  rest_wrapper/conf
+  
+'''
+snippets: [
+  {
+    linesHighlighted: []
+    name: "conf.py"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      
+      import json
+      from sharedtestutils.str_utils import normalize_to_str
+      from ..base import Entity, Collection
+      from .stanza import Stanza
+      import urllib
+      
+      
+      class Conf(Entity, Collection):
+          """
+          This class represents a .conf file in the Splunk system. A Conf object
+          holds Stanza objects that represent the .conf files content.
+      
+          Two endpoints give access to configuration files:
+          * properties/
+          * configs/conf-{file}/
+          To get or update conf file, both endpoints will work, but there are some
+          actions can only be executed by configs/conf-{file}:
+          - Setting permissions
+          - Enabling or disabling a stanza in a configuration
+          - Moving a resources
+          ENTITY_NAME in class Conf will use config
+          """
+      
+          ENTITY_NAME = 'config'
+      
+          def __init__(self, conf_name, rest):
+              """
+              Conf init
+      
+              :type conf_name: str
+              :param conf_name: name of the conf file
+              :type rest: RestInPeace
+              :param rest: the RestInPeace object
+              """
+              self._conf_name = normalize_to_str(conf_name)
+              Entity.__init__(self, self._conf_name, rest)
+              Collection.__init__(self)
+              self._name = "conf-{}".format(self._conf_name)
+      
+          def __contains__(self, stanza_name):
+              """
+              Check stanza with specified name exist or not
+      
+              :type stanza_name: string
+              :param stanza_name: stanza name
+      
+              :rtype: bool
+              :return: True if exist else False
+              """
+              return self.exists(sub_endpoint=self._quote_stanza_name(stanza_name))
+      
+          def __getitem__(self, stanza_name):
+              """
+              Fetch a stanza
+      
+              :type stanza_name: string
+              :param stanza_name: stanza name
+      
+              :rtype: stanza
+              :return: stanza instance
+              """
+              if stanza_name not in self:
+                  raise StanzaNotFound(self.name, stanza_name)
+              return Stanza(self, stanza_name)
+      
+          @staticmethod
+          def _quote_stanza_name(stanza_name):
+              """
+              Quotes stanza name.
+      
+              :type stanza_name: string
+              :param stanza_name: stanza name
+      
+              :rtype: str
+              :return: url quoted stanza name
+              """
+              return urllib.quote(stanza_name, safe='')
+      
+          @property
+          def name(self):
+              """
+              Gets conf file name
+      
+              :rtype: str
+              :return: conf file name
+              """
+              return self._conf_name
+      
+          def items(self, count=-1, offset=0):
+              """
+              Get list of Stanza Object
+      
+              :type count: int
+              :param count: maximum number of entries to return
+              :type offset: int
+              :param offset: index of first item to return
+      
+              :rtype: list
+              :return: List of Stanza Object
+              """
+              req_args = {"count": str(count), "offset": str(offset)}
+              resp, content = self._get(**req_args)
+              assert resp['status'] == "200"
+              parsed_content = json.loads(content)
+              stanza_list = [entry['name'] for entry in parsed_content['entry']]
+              if stanza_list:
+                  return [Stanza(self, stanza_name) for
+                          stanza_name in stanza_list]
+              else:
+                  return []
+      
+          def create_stanza(self, stanza_name, *args, **kwargs):
+              """
+              Create stanza in conf-file. Do nothing if stanza exists.
+      
+              :type stanza_name: string
+              :param stanza_name: stanza name
+              :type args: list
+              :param args: additional positional args
+              :type kwargs: dict
+              :param kwargs: additional key value args
+      
+              :rtype: stanza
+              :return: stanza instance
+              """
+              if stanza_name in self:
+                  self.logger.info("Stanza {} already exist in {}.conf".format(
+                      stanza_name, self.name))
+                  return Stanza(self, stanza_name)
+              self.logger.info("Creating stanza {} in {}.conf".format(
+                  stanza_name, self.name))
+              self.edit(name=stanza_name, *args, **kwargs)
+              if stanza_name not in self:
+                  raise StanzaNotFound(self.name, stanza_name)
+              return Stanza(self, stanza_name)
+      
+          def delete_stanza(self, stanza_name):
+              """
+              Delete stanza in conf-file. Do nothing if stanza not exist.
+      
+              :type stanza_name: string
+              :param stanza_name: stanza name
+              """
+              self.logger.info("Deleting stanza {} "
+                               "in {}.conf".format(stanza_name, self.name))
+              if stanza_name not in self:
+                  return None
+              self.delete(sub_endpoint=self._quote_stanza_name(stanza_name))
+      
+      
+      class StanzaNotFound(KeyError):
+          """
+          Raised when a conf file does not contain the specified stanza.
+      
+          @ivar conf: The name of the conf file.
+          @ivar stanza: The name of the stanza.
+          """
+      
+          def __init__(self, conf, stanza):
+              """
+              Creates a new exception.
+      
+              @param conf: The name of conf file.
+              @type conf: str
+              @param stanza: The name of stanza.
+              @type stanza: str
+              """
+              super(StanzaNotFound, self).__init__(conf, stanza)
+              self.message = "Stanza '{}' does not exist in conf-file '{}.conf'".format(
+                  stanza, conf)
+      
+          def __str__(self):
+              """
+              Return the message info
+              """
+              return self.message
+      
+      
+      
+    '''
+  }
+  {
+    name: "confs.py"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      from ..base import Manager, Collection
+      from .conf import Conf
+      
+      
+      class Confs(Manager, Collection):
+          """
+          Confs manager represents the collection of .conf files of the Splunk system
+      
+          A notable difference to most other managers is that there are two layers
+          of Entity classes in this class:
+      
+          * Confs contains all the .conf files represented as Conf objects (which are
+          of the type Entity).
+          * A Conf object contains all the stanzas represented as Stanza objects
+          (which are also of the type Entity).
+          * A Stanza contains a collection of key-value pairs corresponding to the
+          content of a stanza.
+      
+          Two endpoints give access to configuration files:
+          * properties/
+          * configs/conf-{file}/
+          To create a new conf file or get all conf file, can only use properties/
+          ENTITY_NAME in class Confs will use property
+          To get or update conf file, both endpoints will work, but there are some
+          actions can only be executed by configs/conf-{file}:
+          - Setting permissions
+          - Enabling or disabling a stanza in a configuration
+          - Moving a resources
+          ENTITY_NAME in class Conf and Stanza will use config
+          """
+      
+          ENTITY_CLASS = Conf
+          ENTITY_NAME = "property"
+      
+          def __init__(self, rest):
+              """
+              Confs init
+      
+              :type rest: RestInPeace
+              :param rest: the rest object
+              """
+              Manager.__init__(self)
+              Collection.__init__(self)
+              self._rest = rest
+      
+          def __getitem__(self, conf_name):
+              """
+              Fetch a conf file
+              Can't using get() method because rest call to a not existing
+              conf name still return 200
+              for example:
+              curl -k -u xx/xx base_url/servicesNS/nobody/search/configs/conf-testabc
+              response code will 200 when testabc not exist
+      
+              :type conf_name: string
+              :param conf_name: conf file name
+      
+              :rtype: Conf Object
+              :return: Conf instance
+              """
+      
+              for conf in self:
+                  if conf.name == conf_name:
+                      return conf
+              raise ConfNotFound(conf_name)
+      
+          def __contains__(self, conf_name):
+              """
+              Check conf with specified name exist or not
+              Can't using exists() method for the same reason of __getitem__
+      
+              :type conf_name: string
+              :param conf_name: conf file name
+      
+              :rtype: bool
+              :return: True if exist else False
+              """
+              for conf in self:
+                  if conf.name == conf_name:
+                      return True
+              return False
+      
+          @property
+          def rest(self):
+              """
+              Get rest instance
+      
+              :return: rest instance
+              """
+              return self._rest
+      
+          def create(self, conf_name, *args, **kwargs):
+              """
+              Create conf file
+      
+              :type conf_name: str
+              :param conf_name: conf file name
+      
+              :rtype: conf instance
+              :return: conf instance
+              """
+              if conf_name in self:
+                  self.logger.info("conf file {} already existed".format(conf_name))
+              else:
+                  self.logger.info("Creating conf file: {}".format(conf_name))
+                  self._create(__conf=conf_name, *args, **kwargs)
+              return Conf(conf_name, self.rest)
+      
+          def items(self):
+              """
+              Get list of Conf Object
+      
+              :rtype: list
+              :return: List of Conf Object
+              """
+              return self.all()
+      
+      
+      class ConfNotFound(KeyError):
+          """
+          Raised when a conf file that does not exist is read from.
+          """
+      
+          def __init__(self, conf):
+              """
+              Creates a new exception.
+      
+              @param conf: The name of the conf file that was missing.
+              """
+              error_msg = "The conf file {}.conf does not exist".format(conf)
+              super(ConfNotFound, self).__init__(error_msg)
+      
+    '''
+    linesHighlighted: []
+  }
+  {
+    name: "stanza.py"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      from sharedtestutils.str_utils import normalize_to_unicode
+      from sharedtestutils.str_utils import normalize_to_str
+      from ..base import Entity, Collection
+      import urllib
+      
+      
+      class Stanza(Entity, Collection):
+          """
+          This class is a collection of key-value pairs contained in a stanza.
+      
+          Two endpoints give access to configuration files:
+          * properties/
+          * configs/conf-{file}/
+          To get or update conf file, both endpoints will work, but there are some
+          actions can only be executed by configs/conf-{file}:
+          - Setting permissions
+          - Enabling or disabling a stanza in a configuration
+          - Moving a resources
+          ENTITY_NAME in class Stanza will use config
+          """
+      
+          ENTITY_NAME = 'config'
+      
+          def __init__(self, conf, stanza_name):
+              """
+              Stanza init
+      
+              :type conf: Conf object
+              :param conf: Conf instance
+              :type stanza_name: str
+              :param stanza_name: name of the stanza
+              """
+              self._stanza_name = normalize_to_str(stanza_name)
+              Entity.__init__(self, self._stanza_name, conf.rest)
+              Collection.__init__(self)
+              self._conf = conf
+              self._name = conf._name
+              self._sub_endpoint = urllib.quote(self._stanza_name, safe='')
+      
+          def __setitem__(self, key, value):
+              """
+              Set or update a key value pair in the stanza
+      
+              :type key: string
+              :param key: key value
+              :type value: string
+              :param value: value info
+              """
+              self.logger.info("Add or update key {} with value {} in stanza {} in {}.conf."
+                               "".format(key, value, self.name, self.conf.name))
+              self.edit(sub_endpoint=self._sub_endpoint, **{key: value})
+      
+          def __getitem__(self, key):
+              """
+              Fetch a value in the stanza.
+      
+              :type key: String
+              :param key: The key associated with the value to be fetched
+      
+              :rtype: String
+              :return: value associated with the key
+              """
+              key = normalize_to_unicode(key)
+              if key in self.items():
+                  return normalize_to_str(self.items()[key])
+              else:
+                  raise KeyError('The specified key {} does not in the stanza'.format(key))
+      
+          def __contains__(self, key):
+              """
+              Check key is in stanza or not
+      
+              :rtype: bool
+              :return: True if exist else False
+              """
+              key = normalize_to_unicode(key)
+              return key in self.items()
+      
+          def __iter__(self):
+              """
+              Return stanza info in stanzas
+              """
+              return self.items().iteritems()
+      
+          @property
+          def conf(self):
+              """
+              Get conf instance
+      
+              :rtype: Conf object
+              :return: Conf instance
+              """
+              return self._conf
+      
+          @property
+          def name(self):
+              """
+              Get stanza name
+      
+              :rtype: string
+              :return: stanza name
+              """
+              return self._stanza_name
+      
+          def items(self):
+              """
+              Get dict of Stanza key value pairs
+      
+              :rtype: Dict
+              :return: dict of Stanza in key value pairs
+              """
+              return self.content
+      
+          def update(self, *args, **kwargs):
+              """
+              Set or update one or multi key value pair in the stanza
+      
+              :type args: list
+              :param args: additional positional args
+      
+              :type kwargs: dict
+              :param kwargs: additional key value args
+              """
+              self.logger.info("Add or update multi key value pairs in stanza {} "
+                               "in {}.conf.".format(self.name, self.conf.name))
+              self.edit(sub_endpoint=self._sub_endpoint, *args, **kwargs)
+      
+    '''
+    linesHighlighted: []
+  }
+]
+isStarred: false
+isTrashed: false

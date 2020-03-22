@@ -1,0 +1,89 @@
+createdAt: "2020-03-22T07:01:41.769Z"
+updatedAt: "2020-03-22T07:41:08.177Z"
+type: "MARKDOWN_NOTE"
+folder: "b52a7c0642d2c6d5f4b4"
+title: "K8S ConfigMap"
+tags: []
+content: '''
+  # K8S ConfigMap
+  - Configuration params can be put in configMap
+  - The configMap key-value pairs can be read by app:
+    - Environment variables
+    - Volumes
+  
+  ### ConfigMap generation
+  - command 
+  ```ruby
+  # create configMap from dir
+  kubectl create configmap <name> --from-file=test.ini 
+  
+  # create configMap from literal
+  kubectl create configmap <name> --from-literal=host=1.1.1.1 --from-literal=port=3000
+  ```
+  - ConfigMap.yaml
+  ```yaml
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: config-1
+    namespace: default
+  data:
+    host: 1.1.1.1
+    port: "3000"
+  ```
+  - using configmap from ENV variable
+  ```yaml
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: busybox-1
+  spec:
+    containers:
+    - name: busybox
+      image: busybox
+      command: ["/bin/sh"]
+      args: ["-c", "while true; do echo hello; sleep 10;done"]
+      env:
+        - name: HOST
+          valueFrom:
+            configMapKeyRef:
+              name: config-1
+              key: host
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: config-1
+              key: port
+      # import all config to env
+      envFrom:
+        - configMapRef:
+          name: config-2
+  ```
+  - using configmap from volume
+  ```yaml
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: busybox-2
+  spec:
+    containers:
+    - name: busybox
+      image: busybox
+      command: ["/bin/sh"]
+      args: ["-c", "while true; do echo hello; sleep 10;done"]
+      volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+    volumes:
+        - name: config-volume
+          configMap:
+            name: config-2
+  ```
+  - update configmap
+  ```ruby
+  kubectl edit configmap <name>
+  ```
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

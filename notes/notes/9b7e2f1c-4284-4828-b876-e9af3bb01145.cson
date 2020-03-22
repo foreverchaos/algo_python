@@ -1,0 +1,21 @@
+createdAt: "2020-03-13T05:36:47.854Z"
+updatedAt: "2020-03-13T05:44:03.748Z"
+type: "MARKDOWN_NOTE"
+folder: "b52a7c0642d2c6d5f4b4"
+title: "K8S overview"
+tags: []
+content: '''
+  # K8S overview
+  
+  ## Kubernetes master
+  ![k8s_master.png](:storage\\9b7e2f1c-4284-4828-b876-e9af3bb01145\\11a892ef.png =700x300)
+  
+  ## Kubernetes worker
+  ![K8s_worker.png](:storage\\9b7e2f1c-4284-4828-b876-e9af3bb01145\\483df071.png =600x400)
+  - kubelet: agent for master make a command to worker
+  - kube-proxy: expose service network/port from containers to user
+  - Fluentd: network connection within pods
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

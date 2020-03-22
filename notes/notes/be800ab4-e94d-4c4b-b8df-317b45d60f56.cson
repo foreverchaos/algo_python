@@ -1,0 +1,148 @@
+createdAt: "2020-01-31T09:11:15.917Z"
+updatedAt: "2020-01-31T13:41:55.703Z"
+type: "MARKDOWN_NOTE"
+folder: "805110773a610f5a4597"
+title: "Flask Http"
+tags: []
+content: '''
+  # Flask Http
+  - request mothods
+  
+  ```python
+  @app.route('/greet/<name>', methods=['GET', 'POST'])
+  def hello_world(name):
+      return 'Hello World! {}'.format(name)
+  ```
+  
+  - url data convert
+  ```python
+  @app.route('goback/<any(blue, white, red)>:color')
+  @app.route ('goback/<int:year>')
+  def go back (year, color):
+    return ' <p>Welcome to %d'</p ＞ ’ %（ 2018 - year)
+  ```
+  - page redirect
+  ```python
+  from flask import Flask , redirect, url_for
+  #
+  @app.route ('/hello')
+  def hello():
+    return redirect(url_for('hello')')
+  ```
+  - self return error code
+  ```python
+  from flask import Flask, abort
+  
+  @app.route('/404')
+  def not_found():
+    abort(404)
+  ```
+  -- return json response
+  ```python
+  from flask import Flask, jsonify
+  
+  @app.route('/foo', methods=['GET', 'POST'])
+  def foo():
+      return jsonify(name='Gary', gender='male')
+  ```
+  - set cookie/ get cookie
+  ```python
+  from flask import Flask, make_response
+  
+  @app.route('/set/<name>')
+  def set_cookie(name)
+    response = make_response(redirect(url_for('hello')))
+    response.set_cookie('name', name)
+    return response
+    
+  @app.route('/foo')
+  def get_cookie()
+    name = request.args.get('name')
+    if name is None:
+      name = request.cookies.get('name', 'Human')
+    return response
+  ```
+  - session
+  ```python
+  # use session to encrypt cookie
+  @app.route('/login')
+  def login():
+      session['logged_in'] = True
+      return redirect(url_for('hello_world'))
+  
+  
+  @app.route('/')
+  @app.route('/hello')
+  def hello():
+      name = request.args.get('name')
+      if name is None:
+          name = request.cookies.get('name', 'Human')
+          response = 'Hello {}'.format(name)
+          if 'logged_in' in session:
+              response += '[Authenticated]'
+          else:
+              response += '[Not Authenticated]'
+          return response
+  
+  @app.route('/logout')
+  def logout():
+      if 'logged_in' in session:
+         session.pop('logged_in')
+      return redirect(url_for('hello'))
+    
+  ```
+  
+  - flask context (current_app, g)
+  ```python
+  from flask import g
+  
+  # use g to store request name
+  @app.before_request
+  def get_name():
+    g.name = request.args.get('name')
+  ```
+  - Page redirect to last page
+  > use referrer
+  ```python
+  return redirect(request.referrer or url_for('hello'))
+  ```
+  > use next
+  ```python
+  # remember foo url when go to do_something
+  @app.route('/foo')
+  def foo():
+    return '<a href ="{}"'.format(url_for('do_something',        next=request.full_path))
+  
+  # finish do_something then redirect to foo
+  @app.route('/do_something')
+  def do_something():
+    return redirect(request.args.get('next', url_for('hello')))
+  ```
+  > common redirect back function
+  ```python
+  def redirct_back(default='hello', **kwargs):
+     for target in request.args.get('next'), request.referrer:
+        if target:
+           return redirect(target)
+     return redirect(url_for(default, **kwargs))
+     
+  @app.route('/do_something')
+  def do_something():
+    return redirect_back()
+  ```
+  - verify URL safety
+  ```python
+  from urllib.parse import urlparse, urljoin
+  
+  def is_safe_url(target):
+     ref_url = urlparse(requst.host_url)
+     test_url = urlparse(urljoin(requst.host_url, target))
+     return test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc
+  ```
+'''
+linesHighlighted: [
+  33
+  43
+]
+isStarred: false
+isTrashed: false

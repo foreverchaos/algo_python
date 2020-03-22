@@ -1,0 +1,90 @@
+createdAt: "2020-01-09T05:53:04.481Z"
+updatedAt: "2020-01-09T05:53:44.969Z"
+type: "SNIPPET_NOTE"
+folder: "c75bf4e7ed3c2027bb4a"
+title: "frontend/util"
+tags: []
+description: "frontend/util"
+snippets: [
+  {
+    linesHighlighted: []
+    name: "browsermanager.py"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      import pytest
+      import logging
+      from splunkwebdriver.WebDriverWrapper import WebDriverWrapper
+      
+      logger = logging.getLogger(__name__)
+      
+      global DRIVER_INSTANCES
+      DRIVER_INSTANCES = []
+      
+      
+      def init_browser():
+          """
+          Initialize browser
+      
+          :return: browser instance
+          """
+          logger.info("Setting up browser instance with Splunk's WebDriverWrapper.")
+          try:
+              global DRIVER_INSTANCES
+              if (hasattr(pytest.config, 'browser_scope') and
+                  pytest.config.browser_scope == 'session' and
+                      len(DRIVER_INSTANCES) > 0):
+                  webdriver = DRIVER_INSTANCES.pop()
+              else:
+                  webdriver = WebDriverWrapper(
+                      pytest.config.get_browser(pytest.config))
+      
+              logger.info("Webdriver session ID: '{id}'".format(
+                  id=webdriver.session_id))
+      
+              pytest.config.webdriver = webdriver
+      
+              DRIVER_INSTANCES.append(webdriver)
+              return webdriver
+      
+          except Exception as err:
+              logger.error("Error occurred setting WebDriverWrapper."
+                           "{e}".format(e=err))
+              raise
+      
+      
+      def destroy_all_browsers():
+          """
+          Destroy all browser instances
+          """
+          global DRIVER_INSTANCES
+          try:
+              logger.info(
+                  "There are {i} instances of webdriver, "
+                  "tearing them down.".format(i=len(DRIVER_INSTANCES)))
+              for driver in DRIVER_INSTANCES:
+                  if driver is not None:
+                      try:
+                          logger.info("Cookies: {c}".format(c=driver.get_cookies()))
+                      except Exception as err:
+                          logger.error("Error occurred while getting cookies."
+                                       "{e}".format(e=err))
+      
+                      try:
+                          logger.info("Quitting browser...")
+                          driver.quit()
+                      except Exception as err:
+                          logger.error(
+                              "Error happened while quitting browser: {err}".format(
+                                  err=err))
+          finally:
+              pytest.config.webdriver = None
+              DRIVER_INSTANCES = []
+      
+    '''
+  }
+]
+isStarred: false
+isTrashed: false

@@ -16,4 +16,4 @@ def count_and_say(n):
 
 
 if __name__ == '__main__':
-    print count_and_say(10)
+    print(count_and_say(10))

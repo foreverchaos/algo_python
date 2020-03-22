@@ -1,0 +1,92 @@
+createdAt: "2019-07-25T09:39:23.554Z"
+updatedAt: "2019-07-29T09:01:33.686Z"
+type: "MARKDOWN_NOTE"
+folder: "f31f9519b034f5ea09d8"
+title: "Overview && Knowledge object"
+tags: []
+content: '''
+  # Overview && Knowledge object
+  ## overview:
+    - splunk CLI call rest
+    - search head cluster: deployer manage cluster search head conf file
+    - universal forward (binary) is traditionally located in data input side
+    - multi-site search heads belong to one SHC, which is located in different physical address
+  ---
+  ## search knowledge
+  
+  ### SPL
+    - if not start with 'search', shoud add '|' to start   (e.g.  |eventcount index=_internal)
+  	
+  ### Types of commands
+    - steaming command (search, eval)
+    - generating command (eventcount)
+    - transforming command (chart, stats, timechart)
+    - dataset processing command (datamodel, join)
+  	
+  ### Basic commands:
+  - dedup: remove duplicate
+  ```sql
+  index="_internal" sourcetype="splunkd" | dedup component)
+  ```
+  - fields: only show fields included 
+   ```sql
+   index="_internal" sourcetype="splunkd" | stats count by fi)elds component|fields count
+   ```
+  
+  ### Functions
+  - evaluation function:  (if, else)
+  ```sql
+  	eval blamer=if(component=="LicenseUsage", "Clara", "Others")
+  	case(component=="LicenseUsage", "Clara", component!="LicenseUsage", "Other")
+  ```
+  - statistic and charting
+  ```sql
+  	|stats first(_raw) (event order)
+  ```
+  	
+  ### SPL: sub search
+  ```sql
+  index="_internal" sourcetype="splunkd"|join component [search index="_internal" sourcetype="splunkd"| stats count by component]
+  ```
+  
+  ### Search type:
+  - ad hoc search, saved search, real time search
+  
+  ### Saved search:
+  - using saved search: 
+  ```sql
+  |savedsearch search_name
+  ```
+  - dashboard is composed of reports
+  >save search as alert, scheduled run saved search
+  
+  - Realtime search: time panel choice
+  
+  ### Knowledge object
+  - data model
+  > create data model: edit nodes, add fields
+  > using data model in search: 
+  > ```sql
+  > |datamodel interal_sever httplistener search  {name, node}
+  > ```
+   
+  ### Field extraction
+  - Field extractor: use drag and drop to extrace fields from log (only from _raw)
+  - Field transforming: transform fields which has been extracted using Field extractor (not only from _raw)
+  
+  ### Data classification
+  - event type
+  - transaction
+  
+  ### Data normaliazation
+  - Tag
+  - Field Aliasing
+  
+  ### Data enhancement
+  - Lookup
+  
+  ### Workflow
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

@@ -1,0 +1,45 @@
+createdAt: "2019-11-22T09:45:45.331Z"
+updatedAt: "2019-11-22T09:46:20.548Z"
+type: "SNIPPET_NOTE"
+folder: "a8a34bf81446463f9ca3"
+title: "vs code pytest launch.conf"
+tags: []
+description: "vs code pytest launch.conf"
+snippets: [
+  {
+    linesHighlighted: []
+    name: "launch.conf"
+    mode: "Plain Text"
+    content: '''
+      {
+          "name": "Python: loadbalancer test",
+          "type": "python",
+          "request": "launch",
+          "module": "pytest",
+          "console": "integratedTerminal",
+          "args": [
+              "-v",
+              "-k TestOpenInPivotGenerate",
+              "-s", 
+              "--deployment-type=S1", 
+              "--infra-type=ucp",
+              "--platform=linux",
+              "--disable-parallel",
+              "--diag",
+              "--ci-group=default",
+              "--product=splunk", 
+              "--nightly-branch=quake",
+              "--changelist=56221c5689c1",
+          ],            
+          "cwd": "/build/qa/core_datf/functional/backend/tests/datamodel/suite_open_in_pivot/",
+          "pythonPath": "/opt/docker_admin/eserv/.orca_runner_venv/35bbc8c544eeff094ecb0c14bf54e73c3bbd35c4/bin/python",
+          // "program": "${workspaceFolder}/test_open_in_pivot_generate_endpoint.py"
+          "program": "test_open_in_pivot_generate_endpoint.py",
+          // "subProcess": true,
+      },
+      
+    '''
+  }
+]
+isStarred: false
+isTrashed: false

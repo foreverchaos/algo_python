@@ -1,0 +1,130 @@
+createdAt: "2020-03-20T06:30:55.328Z"
+updatedAt: "2020-03-21T09:08:56.261Z"
+type: "MARKDOWN_NOTE"
+folder: "b52a7c0642d2c6d5f4b4"
+title: "K8S volumn"
+tags: []
+content: '''
+  # K8S volumn
+  
+  ### host path
+  > we should create directory on nodes before creating pod
+  ```yaml
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: test-pd
+  spec:
+    containers:
+    - name: busybox1
+      image: busybox
+      command: ["/bin/sh"]
+      args: ["-c", "while true; do echo hello; sleep 10;done"]
+      volumeMounts:
+      - mountPath: /test-pd
+        name: test-volume
+    - name: busybox2
+      image: busybox
+      command: ["/bin/sh"]
+      args: ["-c", "while true; do echo hello; sleep 10;done"]
+      volumeMounts:
+      # container path
+      - mountPath: /test-temp
+        name: test-volume
+    volumes:
+    - name: test-volume
+      hostPath:
+        # directory location on host
+        path: /data
+        # this field is optional
+        type: Directory
+  ```
+  ![QQ图片20200320154040.png](:storage\\6f276742-90fd-4ed8-ab4f-35c18e8deb12\\bcaef1b6.png =700x450)
+  ### emptydir
+  > when pod is allocated to node, emptyDir volumn will be created, each container in pod can share this emptyDir. 
+  > when pod be deleted, emptyDir also be deleted
+  > when container crashed, emptyDir still exisiting
+  ```yaml
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: test-pd
+  spec:
+    containers:
+    - name: busybox1
+      image: busybox
+      command: ["/bin/sh"]
+      args: ["-c", "while true; do echo hello; sleep 10;done"]
+      volumeMounts:
+      - mountPath: /test-pd
+        name: test-volume
+    - name: busybox2
+      image: busybox
+      command: ["/bin/sh"]
+      args: ["-c", "while true; do echo hello; sleep 10;done"]
+      volumeMounts:
+      # container path
+      - mountPath: /test-temp
+        name: test-volume
+    volumes:
+    - name: test-volume
+      emptyDir: {}
+  ```
+  ### PVC (host_path)
+  - create PV
+  ```yaml
+  kind: PersistentVolume
+  apiVersion: v1
+  metadata:
+    name: task-pv-volume
+    labels:
+      type: local
+  spec:
+    storageClassName: manual
+    capacity:
+      storage: 10Gi
+    accessModes:
+      - ReadWriteOnce
+    hostPath:
+      path: "/mnt/data"
+  ```
+  - create pvc
+  ```yaml
+  kind: PersistentVolumeClaim
+  apiVersion: v1
+  metadata:
+    name: task-pv-claim
+  spec:
+    storageClassName: manual
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 3Gi
+  ```
+  - pod to use pv
+  ```yaml
+  kind: Pod
+  apiVersion: v1
+  metadata:
+    name: task-pv-pod
+  spec:
+    volumes:
+      - name: task-pv-storage
+        persistentVolumeClaim:
+         claimName: task-pv-claim
+    containers:
+      - name: task-pv-container
+        image: nginx
+        ports:
+          - containerPort: 80
+            name: "http-server"
+        volumeMounts:
+          - mountPath: "/usr/share/nginx/html"
+            name: task-pv-storage
+  
+  ```
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

@@ -1,0 +1,28 @@
+createdAt: "2020-01-31T08:31:54.510Z"
+updatedAt: "2020-01-31T08:33:12.704Z"
+type: "MARKDOWN_NOTE"
+folder: "805110773a610f5a4597"
+title: "Flask Base"
+tags: []
+content: '''
+  # Flask Base
+  - url with params
+  ```python
+  @app.route('/greet/', defaults={'name': 'engineer'})
+  @app.route('/greet/<name>')
+  def hello_world(name):
+      return 'Hello World! {}'.format(name)
+  ```
+  
+  - flask self-defined command
+  ```python
+  @app.cli.command('say')
+  def hello():
+      click.echo('Hello, Human')
+      
+  >>flask say
+  ```
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

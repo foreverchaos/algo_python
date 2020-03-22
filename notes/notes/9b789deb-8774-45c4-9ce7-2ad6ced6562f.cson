@@ -1,0 +1,20 @@
+createdAt: "2019-07-25T10:12:48.214Z"
+updatedAt: "2019-07-27T05:44:04.876Z"
+type: "SNIPPET_NOTE"
+folder: "a8a34bf81446463f9ca3"
+title: "python -c instruction"
+tags: []
+description: "python -c instruction"
+snippets: [
+  {
+    linesHighlighted: []
+    name: "python.cmd"
+    mode: "Python"
+    content: '''
+      python -c "exec(\\"import os\\nx = 5\\nfor i in [1,2,3]:\\n\\tprint i\\n\\tprint i\\")"
+      
+    '''
+  }
+]
+isStarred: false
+isTrashed: false

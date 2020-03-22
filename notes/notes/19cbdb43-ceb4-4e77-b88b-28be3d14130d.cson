@@ -1,0 +1,121 @@
+createdAt: "2020-01-16T02:26:26.172Z"
+updatedAt: "2020-01-16T02:27:33.311Z"
+type: "SNIPPET_NOTE"
+folder: "c75bf4e7ed3c2027bb4a"
+title: "pytest_params_marker"
+tags: []
+description: "pytest_params_marker"
+snippets: [
+  {
+    linesHighlighted: []
+    name: "_params"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      
+      def params(funcarglist):
+          """
+          Method used with generated/parameterized tests, can be used to decorate
+          your test function with the parameters.  Each dict in your list
+          represents on generated test.  The keys in that dict are the parameters
+          to be used for that generated test
+          """
+      
+          def wrapper(function):
+              \'''
+              Wrapper function to add the funcarglist to the function
+              \'''
+              function.funcarglist = funcarglist
+              return function
+      
+          return wrapper
+      
+      
+      def override_params(funcarglist):
+          """
+          Method used with generated/parameterized tests, can be used to decorate
+          your test function with the parameters.  Each dict in your list
+          represents on generated test.  The keys in that dict are the parameters
+          to be used for that generated test
+          """
+      
+          def wrapper(function):
+              \'''
+              Wrapper function to add the funcarglist to the function
+              \'''
+              for param in funcarglist:
+                  for funcarg in function.funcarglist:
+                      if param["testname"] == funcarg["testname"]:
+                          funcarg.update(param)
+              return function
+      
+          return wrapper
+      
+    '''
+  }
+  {
+    name: "plugin"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      import pytest
+      import logging
+      LOGGER = logging.getLogger('pytest_params_marker.plugin')
+      
+      
+      def pytest_generate_tests(metafunc):
+          """
+          hook to support @params and marker in @params via pytestmark
+          """
+          testname = 'testname'
+          pytestmark = 'pytestmark'
+          paramlist = getattr(metafunc.function, "funcarglist", ())
+          if paramlist:
+              LOGGER.debug("generating tests, funcarglist=%s", paramlist)
+              try:
+                  if testname in metafunc.fixturenames:
+                      # Need to keep testname to pass to the test function
+                      ids = [p[testname] for p in paramlist]
+                  else:  # pop testname so not passed to test function
+                      ids = [p.pop(testname) for p in paramlist]
+              except KeyError:
+                  raise NoTestNameException(
+                      "You should have testname for each parameterized test case "
+                      "in {module}::{function}()".format(
+                          module=metafunc.module,
+                          function=metafunc.function.__name__))
+      
+              argnames = list(paramlist[0].keys())
+              if pytestmark in argnames:
+                  argnames.remove(pytestmark)
+              argvalues = []
+              for p in paramlist:
+                  # get all actual args
+                  argvalue = tuple(p.get(k, "") for k in argnames)
+                  if pytestmark in p:
+                      # if there is pytestmark, we need to wrap the marks around
+                      # one by one to fit in the unwrapping code in
+                      # L{_pytest.Metafunc.parametrize}
+                      pytestmark_list = p[pytestmark] if isinstance(p[pytestmark], list) else [p[pytestmark]]
+                      if hasattr(pytest, "param"):  # pytest >=3
+                          argvalue = pytest.param(*argvalue, marks=pytestmark_list)
+                      else:
+                          for pm in pytestmark_list:
+                              pm.args = pm.args + (argvalue,)
+                              argvalue = pm
+                  argvalues.append(argvalue)
+              metafunc.parametrize(argnames, argvalues, indirect=False, ids=ids)
+      
+      
+      class NoTestNameException(Exception):
+          pass
+      
+    '''
+    linesHighlighted: []
+  }
+]
+isStarred: false
+isTrashed: false

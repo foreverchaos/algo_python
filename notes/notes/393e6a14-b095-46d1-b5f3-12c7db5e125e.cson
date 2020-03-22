@@ -1,0 +1,27 @@
+createdAt: "2020-03-22T08:24:01.044Z"
+updatedAt: "2020-03-22T08:57:32.839Z"
+type: "MARKDOWN_NOTE"
+folder: "b52a7c0642d2c6d5f4b4"
+title: "K8S Controller"
+tags: []
+content: '''
+  # K8S Controller
+  ### ReplicaSet
+  - used to maintain the pod duplication count. using selector (label)
+  
+  ### Deployment
+  - define a declarative method for pod and replicaset
+  - deplyment create RS, and RS to manage Pod
+  
+  ### DaemonSet
+  - make sure all or some node will run a pod duplication
+  
+  ### StatefulSet
+  - for stateful service (deployment is stateless)
+  - stable persistent storage, PVC, pod will access to same PV data after rescheduling
+  - stable network flag, pod will remain its podname and hostname after rescheduling, based on headless service (service without ClusterIP)
+  - deploy/scale pod in sequence
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

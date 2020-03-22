@@ -27,4 +27,4 @@ def merge(l, r):
 if __name__ == '__main__':
     arr = [12, 11, 13, 5, 6, 7]
     results = merge_sort(arr)
-    print results
+    print(results)

@@ -1,0 +1,986 @@
+createdAt: "2020-01-14T08:24:58.372Z"
+updatedAt: "2020-01-14T08:41:47.710Z"
+type: "SNIPPET_NOTE"
+folder: "c75bf4e7ed3c2027bb4a"
+title: "theatre/puppeteers"
+tags: []
+description: "theatre/puppeteers"
+snippets: [
+  {
+    linesHighlighted: []
+    name: "init"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8
+      
+      import Queue
+      import logging
+      import contextlib
+      from threading import Thread
+      
+      from sharedtestutils.decorators import deprecated
+      
+      from ..utils import random_sample
+      
+      
+      class BasePuppeteer(object):
+          """
+          BasePuppeteer manages a list of base puppets
+          """
+      
+          def __init__(self, puppets):
+              """
+              BasePuppeteer init
+      
+              :type puppets: BasePuppet[]
+              :param puppets: the specified puppets
+              """
+              self.puppets = puppets
+              self.logger = logging.getLogger(self.__class__.__name__)
+      
+          def all(self, status=None):
+              """
+              Gets all puppets with the specified status
+      
+              :type status: PuppetStatus
+              :param status: the status of the puppets to retrieve
+      
+              :rtype: list of BasePuppet
+              :return: all puppets with the specified status
+              """
+              if status is None:
+                  return list(self.puppets)
+              else:
+                  return [puppet for puppet in self.puppets
+                          if puppet.status == status]
+      
+          def random_choice(self, status=None, remainder=False):
+              """
+              Random choose puppet with the specified status
+      
+              :type status: PuppetStatus
+              :param status: the status of the puppets to retrieve
+      
+              :type remainder: bool
+              :param remainder: True to return the remainder list as well.
+      
+              :rtype: BasePuppet or (BasePuppet, BasePuppeteer)
+              :return: a puppet and depending on the param, remainder, also return
+                       the puppeteer of the remaining puppets
+              """
+              if remainder:
+                  puppets, remainder = self.random_choices(
+                      1, status=status, remainder=remainder)
+                  return puppets[0], remainder
+              else:
+                  puppets = self.random_choices(
+                      1, status=status, remainder=remainder)
+                  return puppets[0]
+      
+          def random_choices(self, count, status=None, remainder=False):
+              """
+              Random choose puppets with the specified status
+      
+              :type count: int
+              :param count: the specified count to choose
+      
+              :type status: PuppetStatus
+              :param status: the status of the puppets to retrieve
+      
+              :type remainder: bool
+              :param remainder: True to return the remainder list as well.
+      
+              :rtype: BasePuppet[] or (BasePuppet[], BasePuppeteer)
+              :return: a puppet and depending on the param, remainder, also return
+                       the puppeteer of the remaining puppets
+              """
+              if status is None:
+                  puppet_population = self.puppets
+              else:
+                  puppet_population = [puppet for puppet in self.puppets
+                                       if puppet.status == status]
+      
+              sample, remainders = random_sample(puppet_population, count)
+      
+              if remainder:
+                  return sample[:count], self.__class__(remainders)
+              else:
+                  return sample[:count]
+      
+          def first(self, status=None):
+              """
+              Gets first puppet with the specified status
+      
+              :type status: PuppetStatus
+              :param status: the status of the puppets to retrieve
+      
+              :rtype: BasePuppet
+              :return: first puppet with the specified status
+              """
+              if status is None:
+                  return next(iter(self.puppets))
+              else:
+                  return next((puppet for puppet in self.puppets
+                               if puppet.status == status))
+      
+          @property
+          @deprecated
+          def head(self):
+              """
+              Gets the head puppet
+              """
+              return self.puppets[0]
+      
+          @property
+          @deprecated
+          def tail(self):
+              """
+              Gets puppets except the head
+              """
+              return self.__class__(self.puppets[1:])
+      
+          @property
+          def size(self):
+              """
+              Size of puppeteer is determined by the number of puppets it has.
+              """
+              return len(self.puppets)
+      
+          def append(self, puppet):
+              """
+              Append puppet
+      
+              :type puppet: BasePuppet
+              :param puppet: the specified puppet
+              """
+              self.puppets.append(puppet)
+      
+          def remove(self, puppet):
+              """
+              Remove puppet
+      
+              :type puppet: BasePuppet
+              :param puppet: the specified puppet
+              """
+              self.puppets.remove(puppet)
+      
+          def extend(self, puppets):
+              """
+              Extend puppets
+      
+              :type puppets: iterable
+              :param puppets: the specified puppets
+              """
+              self.puppets.extend(puppets)
+      
+          def __len__(self):
+              """
+              Size of puppeteer is determined by the number of puppets it has.
+              """
+              return len(self.puppets)
+      
+          def __getitem__(self, idx):
+              """
+              Gets puppet with the specified index
+      
+              :param idx: the specified index
+              """
+              if isinstance(idx, slice):
+                  return self.__class__(self.puppets[idx])
+              else:
+                  return self.puppets[idx]
+      
+          def __contains__(self, puppet):
+              """
+              Checks if the specified puppet is managed by the puppeteer
+      
+              :type puppet: BasePuppet
+              :param puppet: another puppet
+      
+              :return: True if it is managed by the puppeteer
+              """
+              return puppet in self.puppets
+      
+          def __str__(self):
+              """
+              Strings for users
+              """
+              return str(self.puppets)
+      
+          def __repr__(self):
+              """
+              Strings for developers
+              """
+              return '{p}({s})'.format(
+                  p=self.__class__.__name__, s=repr(self.puppets))
+      
+      
+      class SplunkPuppeteer(BasePuppeteer):
+          """
+          SplunkPuppeteer manages a list of splunk puppets
+          """
+      
+          def __init__(self, puppets):
+              """
+              SplunkPuppeteer init
+      
+              :type puppets: SplunkPuppet[]
+              :param puppets: the specified puppets
+              """
+              super(SplunkPuppeteer, self).__init__(puppets)
+              self.thread_queue = Queue.Queue(maxsize=0)
+      
+          def configure_settings(self, settings):
+              """
+              configure the .conf file settings to all puppets
+      
+              :type settings: dict
+              :param settings: dictionary of .conf settings
+              :rtype: list
+              :return: modified list of .conf settings, used by revert_setting
+              """
+              modified_settings = []
+              for puppet in self.puppets:
+                  temp_settings = puppet.configure_settings(settings)
+                  modified_settings.append(temp_settings)
+              return modified_settings
+      
+          @contextlib.contextmanager
+          def settings(self, settings, restart=True, timeout=360, use_rest=True):
+              """
+              Change conf file settings in context. see following usage example:
+              >>> with self.settings(change_settings):
+              >>>     ......
+      
+              :type settings: dict
+              :param settings: dictionary of .conf settings
+              :type restart: bool
+              :param restart: restart splunk to make the changes take effect
+              :type timeout: int
+              :param timeout: timeout time of restart splunk
+              :type use_rest: bool
+              :param use_rest: Restart Splunk via REST or not, default is True to
+              keep consistent in theatre.
+              """
+              original_settings = self.configure_settings(settings)
+              if restart:
+                  self.restart(timeout=timeout, use_rest=use_rest)
+              try:
+                  yield
+              finally:
+                  self.revert_settings(original_settings)
+                  if restart:
+                      self.restart(timeout=timeout, use_rest=use_rest)
+      
+          def revert_settings(self, settings):
+              """
+              revert settings done by method configure_settings.
+              :type settings: list
+              :param settings: list of .conf settings
+              :type puppets: list
+              :param puppets: configuration of list of puppets to be reverted
+              """
+              for idx, puppet in enumerate(self.puppets):
+                  puppet.revert_settings(settings[idx])
+      
+          def start(self, *args, **kwargs):
+              """
+              Start puppets
+      
+              :param args: the specified args
+              :param kwargs: the specified kw args
+              """
+              self._execute_concurrently('start', *args, **kwargs)
+      
+          def restart(self, *args, **kwargs):
+              """
+              Restart puppets
+      
+              :param args: the specified args
+              :param kwargs: the specified kw args
+              """
+              self._execute_concurrently('restart', *args, **kwargs)
+      
+          def stop(self, *args, **kwargs):
+              """
+              Stop puppets
+      
+              :param args: the specified args
+              :param kwargs: the specified kw args
+              """
+              self._execute_concurrently('stop', *args, **kwargs)
+      
+          def _execute_concurrently(self, action, *args, **kwargs):
+              """
+              Execute action on puppets concurrently
+      
+              :param action: the specified action name
+              :param args: the specified args
+              :param kwargs: the specified kw args
+              """
+              for puppet in self.puppets:
+                  if puppet.splunk.is_installed():
+                      thread = ThreadWorker(self.thread_queue)
+                      thread.setDaemon(True)
+                      thread.start()
+                      self.thread_queue.put((puppet, action, args, kwargs))
+                  else:
+                      self.logger.warn(
+                          "The puppet {p} doesn't have splunk installed "
+                          "yet.".format(p=puppet))
+              self.thread_queue.join()
+      
+      
+      class ThreadWorker(Thread):
+          """
+          A Thread class that process start and restart request.
+          """
+      
+          def __init__(self, queue):
+              """
+              :param queue: the specified thread queue
+              """
+              super(ThreadWorker, self).__init__()
+              self.queue = queue
+      
+          def run(self):
+              """
+              Takes the commands off of the queue and performs them
+              """
+              while True:
+                  (puppet, action, args, kwargs) = self.queue.get()
+                  try:
+                      getattr(puppet, action)(*args, **kwargs)
+                  except Exception as exc:
+                      puppet.logger.error(
+                          "Failed to execute {a}. {e}".format(a=action, e=exc))
+                  self.queue.task_done()
+      
+      
+      # Alias for backwards compatibility
+      Puppeteer = SplunkPuppeteer
+      
+    '''
+  }
+  {
+    name: "indexer_cluster"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      from . import SplunkPuppeteer
+      from ..decorators import puppeteer
+      
+      
+      @puppeteer
+      class IndexerClusterPuppeteer(SplunkPuppeteer):
+          """
+          The puppeteer for Indexer Cluster
+          """
+      
+          @property
+          def nodes(self):
+              """
+              Gets the cluster nodes managed by this puppeteer
+      
+              :rtype: SplunkPuppeteer
+              :return: cluster nodes
+              """
+              return SplunkPuppeteer(
+                  [puppet for puppet in self.puppets
+                      if (puppet.has_server_role('cluster_slave') or
+                          puppet.has_server_role('cluster_search_head') or
+                          puppet.has_server_role('cluster_master'))])
+      
+          @property
+          def peers(self):
+              """
+              Gets the cluster peers managed by this puppeteer
+      
+              :rtype: SplunkPuppeteer
+              :return: cluster peers
+              """
+              return SplunkPuppeteer(
+                  [puppet.as_indexer for puppet in self.puppets
+                      if puppet.has_server_role('cluster_slave')])
+      
+          @property
+          def slaves(self):
+              """
+              Gets the cluster slaves managed by this puppeteer. Alias to peers.
+      
+              :rtype: SplunkPuppeteer
+              :return: cluster slaves
+              """
+              return self.peers
+      
+          @property
+          def search_heads(self):
+              """
+               Gets the cluster search heads managed by this puppeteer
+      
+               :rtype: SplunkPuppeteer
+               :return: cluster search heads
+               """
+              return SplunkPuppeteer(
+                  [puppet.as_search_head for puppet in self.puppets
+                      if puppet.has_server_role('cluster_search_head')])
+      
+          @classmethod
+          def generate_accessors(cls):
+              """
+              Generate accessor methods. e.g. as_idc
+              """
+              def gen_as_idc(self):
+                  return IndexerClusterPuppeteer(self.puppets)
+      
+              gen_as_idc.__doc__ = 'as Indexer Cluster puppeteer'
+              gen_as_idc.__name__ = 'as_idc'
+      
+              setattr(SplunkPuppeteer, gen_as_idc.__name__, property(gen_as_idc))
+      
+    '''
+    linesHighlighted: []
+  }
+  {
+    name: "search_head_cluster"
+    mode: "Python"
+    content: '''
+      #!/usr/bin/python
+      # vim: set fileencoding=utf-8 :
+      
+      import httplib
+      import json
+      import socket
+      
+      from polling import poll_for_condition
+      
+      from . import SplunkPuppeteer
+      from ..decorators import puppeteer
+      from ..exceptions import SHCException
+      from ..exceptions import CaptainSwitchException
+      from ..exceptions import CaptainBootstrapException
+      from ..utils import portutil
+      from polling import TimeoutException
+      
+      TIMEOUT = 180
+      FREQUENCY = 10
+      
+      
+      @puppeteer
+      class SHCPuppeteer(SplunkPuppeteer):
+          """
+          The puppeteer for SHC
+          """
+      
+          @property
+          def members(self):
+              """
+              Gets the SHC members managed by this puppeteer
+      
+              :rtype: SplunkPuppeteer
+              :return: SHC members
+              """
+              return SplunkPuppeteer(
+                  [search_head for search_head in self.puppets
+                      if (search_head.has_server_role('shc_member') or
+                          search_head.has_server_role('shc_captain'))])
+      
+          @property
+          def captain(self):
+              """
+              Gets the SHC captain managed by this puppeteer
+      
+              :rtype: SearchHead
+              :return: captain
+              """
+              for search_head in self.puppets:
+                  if search_head.is_running() and search_head.has_server_role(
+                          'shc_captain'):
+                      return search_head
+              return None
+      
+          @property
+          def non_captain_members(self):
+              """
+               Gets the non-captain SHC members managed by this puppeteer
+      
+               :rtype: SplunkPuppeteer
+               :return: non-captain members
+               """
+              return SplunkPuppeteer(
+                  [search_head for search_head in self.puppets
+                      if search_head.has_server_role('shc_member')])
+      
+          def init_member(
+              self, puppet, deployer=None, replication_factor=None,
+                  replication_port=None, secret=None,
+                  timeout=TIMEOUT, frequency=FREQUENCY):
+              """
+              Init splunk instance to search head cluster
+      
+              :type puppet: puppet
+              :param puppet: splunk instance to add
+      
+              :type deployer: Deployer
+              :param deployer: Deployer instance
+      
+              :type replication_port: str
+              :param replication_port: replication port
+      
+              :type replication_factor: int
+              :param replication_factor: replication factor
+      
+              :type secret: str
+              :param secret: security key
+      
+              :type timeout: int
+              :param timeout: timeout in seconds
+      
+              :type frequency: int
+              :param frequency: frequency for checking
+              """
+              deployer_setting = ""
+              if deployer:
+                  deployer_setting = (" -conf_deploy_fetch_url {deployer_url}"
+                                      .format(deployer_url=deployer.uri_base()))
+      
+              if replication_port is None:
+                  replication_port = portutil.find_open_port(puppet)
+      
+              command = ('init shcluster-config -mgmt_uri {mgmt_uri}'
+                         ' -replication_port {replication_port}').format(
+                  mgmt_uri=puppet.uri_base(), replication_port=replication_port)
+              if replication_factor:
+                  command += ' -replication_factor {}'.format(replication_factor)
+      
+              if deployer_setting:
+                  command += deployer_setting
+      
+              if secret:
+                  command += ' -secret {}'.format(secret)
+      
+              self.logger.debug("initialize command is: {}".format(command))
+      
+              def initialize():
+                  global retcode, stdout, stderr
+                  retcode, stdout, stderr = puppet.execute_with_auth(command)
+                  return retcode == 0
+      
+              try:
+                  poll_for_condition(
+                      initialize, timeout=timeout, frequency=frequency,
+                      error_message="Failed to init shcluster-config")
+              except TimeoutException:
+                  error_msg = (
+                          'Failed to initialize shcluster-config '
+                          'code={c}, stdout={sto}, stderr={ste}'
+                          .format(c=retcode, sto=stdout, ste=stderr))
+                  raise SHCException(error_msg)
+      
+              puppet.restart()
+      
+          def add_member(
+              self, puppet, deployer=None, replication_factor=None,
+                  replication_port=None, secret=None,
+                  timeout=TIMEOUT, frequency=FREQUENCY):
+              """
+              Init and add splunk instance to SHC.
+      
+              :type puppet: puppet
+              :param puppet: splunk instance to add
+      
+              :type deployer: Deployer
+              :param deployer: Deployer instance
+      
+              :type replication_port: str
+              :param replication_port: replication port
+      
+              :type replication_factor: int
+              :param replication_factor: replication factor
+      
+              :type secret: str
+              :param secret: security key
+      
+              :type timeout: int
+              :param timeout: timeout in seconds
+      
+              :type frequency: int
+              :param frequency: frequency for checking
+      
+              :rtype: SearchHead
+              :return: the new added SearchHead
+              """
+              self.logger.info("Function to add a new member")
+      
+              self.init_member(
+                  puppet, deployer, replication_factor=replication_factor,
+                  replication_port=replication_port, secret=secret, timeout=timeout)
+      
+              self.logger.info(
+                  "Add new member to search head cluster: {}".format(puppet))
+      
+              captain = self.captain
+      
+              retcode, stdout, stderr = puppet.execute_with_auth(
+                  'add shcluster-member -current_member_uri {member_uri}'
+                  .format(member_uri=captain.uri_base()))
+      
+              if retcode != 0:
+                  err_msg = ('Failed to add shcluster-member.'
+                             ' code={c}, stdout={sto}, stderr={ste}'
+                             .format(c=retcode, sto=stdout, ste=stderr))
+                  raise SHCException(err_msg)
+      
+              self._wait_until_member_joined(puppet, timeout, frequency)
+      
+              search_head = puppet.as_search_head
+              self.puppets.append(search_head)
+      
+              return search_head
+      
+          def switch_captain(
+                  self, new_captain, timeout=TIMEOUT, frequency=FREQUENCY):
+              """
+              switch captain to another search head
+              :type new_captain: SearchHead
+              :param new_captain: the new captain
+              :type timeout: int
+              :param timeout: timeout in seconds
+              :type frequency: int
+              :param frequency: frequency for checking
+              """
+              old_captain = self.captain
+              self._set_shc_preferred_captain_true(new_captain)
+              mgmt_uri = new_captain.uri_base(use_server_name=True)
+              from_mgmt_uri = old_captain.uri_base(use_server_name=True)
+      
+              post_args = {"mgmt_uri": mgmt_uri, "from_mgmt_uri": from_mgmt_uri}
+              rest = new_captain.rest
+              response, content = (
+                  rest.execute_search_head_cluster_transfer_captaincy(
+                      **post_args))
+              if response['status'] != '200':
+                  raise CaptainSwitchException(
+                      "failed to switch captain : {content}".format(content=content))
+      
+              self.wait_for_service_ready()
+              poll_for_condition(
+                  lambda: new_captain.uri_base() == self.captain.uri_base(),
+                  timeout=timeout, frequency=frequency,
+                  error_message="The new captain is not switched successfully.")
+      
+          def _set_shc_preferred_captain_true(self, search_head):
+              """
+              Set the specific search head
+              server.conf [shclustering] preferred_captain = True
+              :type search_head: SearchHead
+              :param search_head: splunk instance
+              """
+              rest = search_head.rest
+              with rest.namespace('nobody', 'system'):
+                  response, content = rest.get_all_search_head_cluster_config(
+                      output_mode='json')
+              entry_list = json.loads(content)['entry']
+              # Set preferred_captain to True if it is False
+              if not entry_list[0]['content']['preferred_captain']:
+                  settings = {
+                      'nobody': {
+                          'system': {
+                              'server': {
+                                  'shclustering': {
+                                      'preferred_captain': True,
+                                  }}}}}
+                  search_head.configure_settings(settings)
+                  search_head.restart(use_rest=False)
+      
+          def perform_rolling_restart(
+                  self, timeout=420, frequency=FREQUENCY, wait_for_completion=False):
+              """
+              launch rolling-restart of search head cluster, wait_for_completion
+              controls whether wait for the completion of rolling restart and
+              service ready
+              :type timeout: int
+              :param timeout: seconds of timeout
+              :type frequency: int
+              :param frequency: checking interval
+              :type wait_for_completion: bool
+              :param wait_for_completion: indicate whether wait for completion
+              of rolling restart, default value is False
+              """
+              retcode, stdout, stderr = self.captain.execute_with_auth(
+                  'rolling-restart shcluster-members')
+              if retcode != 0:
+                  err_msg = ('Failed to rolling-restart shcluster-members '
+                             'code={c}, stdout={sto}, stderr={ste}'.format(
+                              c=retcode, sto=stdout, ste=stderr))
+                  raise SHCException(err_msg)
+      
+              if wait_for_completion:
+                  self.wait_for_rolling_restart_complete(timeout, frequency)
+                  self.wait_for_service_ready(timeout, frequency)
+                  self.wait_for_all_members_up(timeout, frequency)
+      
+          def bootstrap_captain(self, puppet):
+              """
+              This function Boot strap a node as a captain using CLI
+              :type puppet: puppet
+              :param puppet: puppet instance to become captain
+              """
+              uri_base_list = [pupp.uri_base() for pupp in self.puppets]
+              servers_list = ','.join(uri_base_list)
+              self.logger.info("Boot strap a node as a captain")
+              retcode, stdout, stderr = puppet.execute_with_auth((
+                  'bootstrap shcluster-captain '
+                  '-servers_list {server_list}').format(server_list=servers_list))
+      
+              if retcode != 0:
+                  err_msg = ('Failed to bootstrap shcluster-captain '
+                             'code={c}, stdout={sto}, stderr={ste}'.format(
+                              c=retcode, sto=stdout, ste=stderr))
+                  raise CaptainBootstrapException(err_msg)
+              else:
+                  self.logger.info("succeed to bootstrap {} as a captain"
+                                   "".format(puppet.uri_base()))
+      
+          def remove_member(self, puppet, timeout=TIMEOUT, frequency=FREQUENCY):
+              """
+              remove a memeber from search head cluster
+              :type puppet: puppet
+              :param puppet: the search head
+              :type timeout: int
+              :param timeout: timeout in seconds
+              :type frequency: int
+              :param frequency: frequency for checking
+              """
+              retcode, stdout, stderr = puppet.execute_with_auth(
+                  'remove shcluster-member -mgmt_uri {member_uri}'
+                  .format(member_uri=puppet.uri_base()))
+      
+              if retcode != 0:
+                  err_msg = ('Failed to remove shcluster-member.'
+                             ' code={c}, stdout={sto}, stderr={ste}'
+                             .format(c=retcode, sto=stdout, ste=stderr))
+                  raise SHCException(err_msg)
+      
+              self._wait_until_member_removed(puppet, timeout, frequency)
+              self.puppets.remove(puppet)
+      
+          def is_member(self, puppet):
+              """
+              Judge whether a puppet is the member of a search head cluster
+              :type puppet: Puppet
+              :param puppet: the puppet instance to be judaged
+              :rtype: bool
+              :return: if it is the member of seach head cluster, return True;
+              otherwise return False
+              """
+              captain = self.captain
+              members_uri = []
+      
+              _, cont = captain.rest.get_search_head_cluster(
+                  'captain', sub_endpoint='members', output_mode='json')
+              for entry in json.loads(cont)['entry']:
+                  members_uri.append(entry['content']['peer_scheme_host_port'])
+              puppet_uri_base = puppet.uri_base()
+              self.logger.debug("puppet uri_base is {}, members_uri is {}"
+                                "".format(puppet_uri_base, members_uri))
+              return puppet_uri_base in members_uri
+      
+          def _wait_until_member_joined(
+                  self, puppet, timeout=TIMEOUT, frequency=FREQUENCY):
+              """
+              Wait for a standalone puppet joined in cluster and
+              refreshed the search head cluster
+      
+              :type puppet: puppet
+              :param puppet: the standalone puppet
+              :type timeout: int
+              :param timeout: timeout in seconds
+              :type frequency: int
+              :param frequency: frequency for checking
+              """
+              poll_for_condition(
+                  lambda: self.is_member(puppet),
+                  timeout=timeout, frequency=frequency,
+                  error_message="member {} is not joined successfully".format(
+                      puppet.server_name))
+      
+          def _wait_until_member_removed(
+                  self, puppet, timeout=TIMEOUT, frequency=FREQUENCY):
+              """
+              Wait for search head removed in cluster and
+              refreshed the search head cluster
+      
+              :type puppet: puppet
+              :param puppet: the search head
+              :type timeout: int
+              :param timeout: timeout in seconds
+              :type frequency: int
+              :param frequency: frequency for checking
+              """
+              poll_for_condition(
+                  lambda: not self.is_member(puppet), timeout=timeout,
+                  frequency=frequency,
+                  error_message="member {} is not removed successfully".format(
+                      puppet.server_name))
+      
+          def wait_for_service_ready(self, timeout=TIMEOUT, frequency=FREQUENCY):
+              """
+              Wait for SHC service ready.
+      
+              :type timeout: int
+              :param timeout: timeout specified
+      
+              :type frequency: int
+              :param frequency: frequency for checking
+              """
+              def check_service_ready():
+                  """
+                  Check SHC service ready.
+      
+                  :rtype: bool
+                  :return True if SHC service ready
+                  """
+                  self.logger.debug('Check if SHC service is ready.')
+                  if self.captain is None:
+                      self.logger.debug('Captain is not ready.')
+                      return False
+      
+                  return self._get_captain_status('service_ready_flag')
+      
+              poll_for_condition(
+                  check_service_ready,
+                  timeout=timeout, frequency=frequency,
+                  ignore_exceptions=(
+                      KeyError, socket.error, httplib.HTTPException),
+                  error_message='Failed to wait for SHC service ready. '
+                                'Captain service_ready_flag is not true.')
+      
+          def wait_for_rolling_restart_complete(
+                  self, timeout=TIMEOUT, frequency=FREQUENCY):
+              """
+              Wait for SHC rolling restart complete.
+      
+              :type timeout: int
+              :param timeout: timeout specified
+      
+              :type frequency: int
+              :param frequency: frequency for checking
+              """
+      
+              def check_rolling_restart_complete():
+                  """
+                  Check SHC rolling restart complete.
+      
+                  :rtype: bool
+                  :return True if SHC rolling restart is complete
+                  """
+                  self.logger.debug('Check if SHC rolling restart is complete.')
+                  if self.captain is None:
+                      self.logger.debug('Captain is not ready.')
+                      return False
+      
+                  flag = self._get_captain_status('rolling_restart_flag')
+                  if flag is None:
+                      flag = False
+                  else:
+                      flag = not flag
+      
+                  return flag
+      
+              poll_for_condition(
+                  check_rolling_restart_complete,
+                  timeout=timeout, frequency=frequency,
+                  ignore_exceptions=(
+                      KeyError, socket.error, httplib.HTTPException),
+                  error_message='Failed to wait for SHC rolling restart complete')
+      
+          def wait_for_all_members_up(self, timeout=TIMEOUT, frequency=FREQUENCY):
+              """
+              Wait for all SHC members up.
+      
+              :type timeout: int
+              :param timeout: timeout specified
+      
+              :type frequency: int
+              :param frequency: frequency for checking
+              """
+              def check_all_members_up():
+                  """
+                  Check all SHC members up.
+      
+                  :rtype: bool
+                  :return True if all SHC members are up.
+                  """
+                  self.logger.debug('Check if all SHC members are up.')
+                  captain = self.captain
+      
+                  if captain is None:
+                      self.logger.debug('Captain is not ready.')
+                      return False
+      
+                  _, cont = (captain.rest.get_search_head_cluster_status(
+                      'status', output_mode='json'))
+                  peers_info = json.loads(cont)['entry'][0]['content']['peers']
+      
+                  if not peers_info:
+                      return False
+      
+                  for peer_info in peers_info.values():
+                      label = peer_info['label']
+                      status = peer_info['status']
+                      if status.lower() != 'up':
+                          self.logger.debug('{} is {}'.format(label, status))
+                          return False
+                  return True
+      
+              poll_for_condition(
+                  check_all_members_up,
+                  timeout=timeout, frequency=frequency,
+                  ignore_exceptions=(
+                      KeyError, socket.error, httplib.HTTPException),
+                  error_message='Failed to wait for all SHC members up')
+      
+          def _get_captain_status(self, flag):
+              """
+              Get captain status by the specified status flag
+      
+              :type: flag: str
+              :param flag: the specified status flag
+      
+              :rtype: bool / NoneType
+              :return status flag value / None if captain is not ready
+              """
+              flag_value = None
+              try:
+                  _, cont = (self.captain.rest.get_search_head_cluster_status(
+                      'status', output_mode='json'))
+                  captain_info = json.loads(cont)['entry'][0]['content']['captain']
+                  flag_value = captain_info[flag]
+              except AttributeError:
+                  self.logger.debug('Captain is not ready.')
+              return flag_value
+      
+          @classmethod
+          def generate_accessors(cls):
+              """
+              Generate accessor methods. e.g. as_shc
+              """
+              def gen_as_shc(self):
+                  search_heads = [puppet.as_search_head for puppet in self.puppets]
+                  return SHCPuppeteer(search_heads)
+      
+              gen_as_shc.__doc__ = 'as SHC puppeteer'
+              gen_as_shc.__name__ = 'as_shc'
+      
+              setattr(SplunkPuppeteer, gen_as_shc.__name__, property(gen_as_shc))
+      
+    '''
+    linesHighlighted: []
+  }
+]
+isStarred: false
+isTrashed: false

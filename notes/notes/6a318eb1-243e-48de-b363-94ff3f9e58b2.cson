@@ -1,0 +1,17 @@
+createdAt: "2020-03-19T07:47:36.183Z"
+updatedAt: "2020-03-19T08:13:06.808Z"
+type: "MARKDOWN_NOTE"
+folder: "b52a7c0642d2c6d5f4b4"
+title: "K8S label"
+tags: []
+content: '''
+  # K8S label
+  - expose service using label
+  ```ruby
+  kubectl get pod -o wide --show-labels
+  kubectl expose pod <pod> --selector='app=nginx'
+  ```
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

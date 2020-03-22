@@ -1,0 +1,136 @@
+createdAt: "2020-01-23T03:53:20.548Z"
+updatedAt: "2020-01-28T13:07:47.697Z"
+type: "MARKDOWN_NOTE"
+folder: "d38eb8d5dfbe6ecb1827"
+title: "Docker base"
+tags: []
+content: '''
+  # Docker base
+  
+  - image, repo, containers
+  ---
+  - docker command
+  ```
+   docker version
+  ```
+  ```
+  docker info
+  ```
+  ```
+  docker image ls
+  ``` 
+  > List local image file
+  ```
+  docker image ls -a
+  ``` 
+  > List all image
+  ```
+  docker image ls -q
+  ``` 
+  > List contanier IDs
+  ```
+  docker image ls -qa
+  ```
+  ```
+  docker image ls --digests
+  ```
+  > List image with digests
+  ```
+  docker image ls --no-trunc
+  ```
+  > List image with total image ID
+  ```
+  docker search [Image]
+  ```
+  > Search image on docker hub
+  ```
+  docker search tomcat -f=stars=30
+  ```
+  > Search image which is more than stars 30
+  ```
+  docker rmi [image...]
+  ```
+  > Delete image files
+  ```
+  docker rmi -f $(docker image ls -qa)
+  ```
+  > Delete all image files
+  ```
+  docker run [OPTIONS] IMAGE [COMMAND][ARG...]
+  ```
+  > OPTIONS：
+  > --name="name of new container": define a new name for container
+  > -d: run container in background and print container ID
+  > -i: run container in interactive mode, usually used with -t
+  > -t: allocate a pseudo tty terminater
+  > -p: used to port mapping (host port:docker container port)
+  > -P: allocate random port
+  > -e: add env variable to this container
+  ```
+  docker ps [OPTIONS]
+  ```
+  > List process run in docker
+  ```
+  docker start/stop/restart [CONTAINER ID or Name]
+  ```
+  > Start/stop/restart docker container
+  ```
+  docker kill [CONTAINER ID or Name]
+  ```
+  > Force Stop docker container
+  ```ruby
+  docker rm [CONTAINER ID]
+  
+  # delete multiple containers
+  docker rm -f $(docker ps -qa)
+  docker ps -qa|xargs docker rm
+  ```
+  > Delete docker container
+  
+  ```ruby
+  docker run -d [IMAGE]
+  
+  # print 'hello docker' each 2 sec in the background
+  docker run -d centos /bin/sh -c "while true; do echo hello docker;sleep 2; done"
+  ```
+  ![docker_d.png](:storage\\a54b672a-3f63-407a-a11c-0cbe4d4a11eb\\e427d36b.png =800x300)
+  
+  ```
+  docker logs -t -f --tail 5 [CONTAINER ID] 
+  ```
+  > Print logs for container
+  > -t: with timestamp
+  > -f follow log output
+  
+  ```
+  docker top [CONTAINER ID]
+  ```
+  > Print process run inner docker container
+  
+  ```
+  docker inspect [CONTAINER ID]
+  ```
+  > Return low-level information on Docker objects
+  
+  ```ruby
+  docker run -it [CONTAINER ID]
+  # exit and stop container
+  exit
+  
+  # exit don't stop container
+  ctrl+P+Q
+  
+  # re-enter running container
+  docker attch [CONTAINER ID]
+  docker exec -it [CONTAINER ID] /bin/bash
+  # run command in container but not enter into it
+  docker exec -t [CONTAINER ID] ls -l /tmp
+  ```
+  ```
+  docker cp c2fa8b630451:/tmp/louis.tmp /home/louis
+  ```
+  > Copy file in container to host
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

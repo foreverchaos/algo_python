@@ -1,0 +1,127 @@
+createdAt: "2020-02-02T06:12:22.412Z"
+updatedAt: "2020-02-02T10:17:07.848Z"
+type: "MARKDOWN_NOTE"
+folder: "805110773a610f5a4597"
+title: "Flask Form"
+tags: []
+content: '''
+  # Flask Form
+  - use flask_wtf
+  ```python
+  from flask_wtf import FlaskForm
+  from wtforms import StringField, PasswordField, BooleanField, SubmitField
+  from wtforms.validators import DataRequired, Length
+  
+  
+  class LoginForm(FlaskForm):
+      username = StringField('Username', validators=[DataRequired(
+          message='user name is mandatory!')])
+      passworkd = PasswordField('Password', validators=[DataRequired(
+          message='password is mandatory!'), Length(8, 128)])
+      remember = BooleanField('Remember me')
+      submit = SubmitField('Log in')
+  ```
+  - fields instructions
+  ![fields.png](:storage\\607b73b0-55cb-4694-88ea-aa99784ef31f\\64df0193.png =700x450)
+  - fields parmas
+  ![params.png](:storage\\607b73b0-55cb-4694-88ea-aa99784ef31f\\8d03ad37.png =700x200)
+  - validator
+  ![validator.png](:storage\\607b73b0-55cb-4694-88ea-aa99784ef31f\\aafcdf25.png =700x600)
+  
+  ## Use macro to deal with form errors
+  - macro.html
+  ```html
+  {% macro form_field(field) %}
+      {{ field.label }}
+      {% if field.errors %}
+          {{ field(class='form-control is-invalid') }}
+          {% for error in field.errors %}
+              <div class="invalid-feedback">
+                  {{ error }}
+              </div>
+          {% endfor %}
+      {% else %}
+          {{ field(class='form-control') }}
+      {% endif %}
+  {% endmacro %}
+  ```
+  - base.html
+  ```html
+  <form method="post">
+      {{ form.csrf_token }}
+      <div class="form-group">
+          {{ form_field(form.username) }}
+      </div>
+      <div class="form-group">
+          {{ form_field(form.password) }}
+      </div>
+      <div class="form-check">
+          {{ form.remember(class='form-check-input') }}
+          {{ form.remember.label }}
+      </div>
+      {{ form.submit(class='btn btn-primary') }}
+  </form>
+  ```
+  - app.py
+  ```python
+  @app.route('/', methods=['GET', 'POST'])
+  def basic():
+      form = LoginForm()
+      if form.validate_on_submit():
+          username = form.username.data
+          flash('Welcome home, {}'.format(username))
+          return redirect(url_for('index'))
+      return render_template('bootstrap.html', form=form)
+  ```
+  ## Use flask-CKEditor for richtext
+  - html
+  ```html
+  {% extends 'base.html' %}
+  {% from 'macros.html' import form_field %}
+  
+  {% block content %}
+  <div class="container">
+      <h2>Integrate <a href="https://ckeditor.com">CKEditor</a> with <a href="https://github.com/greyli/flask-ckeditor">Flask-CKEditor</a>
+      </h2>
+      <form method="post">
+          {{ form.csrf_token }}
+          <div class="form-group">
+              {{ form_field(form.title) }}
+          </div>
+          <div class="form-group">
+              {{ form_field(form.body) }}
+          </div>
+          {{ form.submit(class='btn btn-primary') }}
+      </form>
+  </div>
+  {% endblock %}
+  
+  {% block scripts %}
+      {{ super() }}
+      {{ ckeditor.load() }}
+      {{ ckeditor.config(name='body') }}
+  {% endblock %}
+  ```
+  - py
+  ```python 
+  # form
+  class RichTextForm(FlaskForm):
+      title = StringField('Title', validators=[DataRequired(), Length(1, 50)])
+      body = CKEditorField('Body', validators=[DataRequired()])
+      submit = SubmitField('Publish')
+  
+  # app
+  @app.route('/ckeditor', methods=['GET', 'POST'])
+  def integrate_ckeditor():
+      form = RichTextForm()
+      if form.validate_on_submit():
+          title = form.title.data
+          body = form.body.data
+          flash('Your post is published!')
+          return render_template('post.html', title=title, body=body)
+      return render_template('ckeditor.html', form=form)
+  ```
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

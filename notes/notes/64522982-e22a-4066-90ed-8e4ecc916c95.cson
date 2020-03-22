@@ -1,0 +1,37 @@
+createdAt: "2020-03-17T09:49:31.975Z"
+updatedAt: "2020-03-17T10:03:40.829Z"
+type: "MARKDOWN_NOTE"
+folder: "b52a7c0642d2c6d5f4b4"
+title: "K8S context"
+tags: []
+content: '''
+  # K8S context
+  
+  - see all cluster context
+  ```ruby
+  kubectl config get-contexts
+  
+  CURRENT   NAME                 CLUSTER          AUTHINFO         NAMESPACE
+            docker-desktop       docker-desktop   docker-desktop
+            docker-for-desktop   docker-desktop   docker-desktop
+  *         minikube             minikube         minikube
+  ```
+  - set context
+  ```ruby
+  # user:AUTHINFO, cluster:CLUSTER
+  kubectl config set-context <name> --user=minikube --cluster=minikube --namespace=demo
+  ```
+  - use context
+  ```ruby
+  # if this context has namespace, then kubectl get pod will follow this namespace
+  kubectl config use-context <name>
+  ```
+  - set current context
+  ```ruby
+  kubectl config set current-context <name>
+  ``` 
+  
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

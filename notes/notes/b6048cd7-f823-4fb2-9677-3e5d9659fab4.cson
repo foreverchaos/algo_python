@@ -1,0 +1,49 @@
+createdAt: "2019-07-27T04:15:45.060Z"
+updatedAt: "2019-08-01T09:54:40.071Z"
+type: "MARKDOWN_NOTE"
+folder: "1b426d7766d1e36b59e7"
+title: "Workload Management"
+tags: []
+content: '''
+  # Workload Management
+  
+  - Create Splunk container with systemd
+    1. pip install splunk_orca==1.0.0.INFRA-13603.201906241632
+  ---
+  - Orca create:
+  >splunk_orca -v --printer sdd-json --deployment-file orca_deployment.json create --splunk-branch current --platform x64_centos_7 --enable-systemd --sc S1 --perf --cluster-affinity=orca-local-debug-m5-large
+  >splunk_orca -v --printer sdd-json --deployment-file orca_deployment.json create --splunk-branch current --platform x64_centos_7 --enable-systemd-splunk --perf --cluster-affinity=orca-local-debug-m5-large --sh 4 --idx 1 --so 2 --shc
+  
+  ---
+  - In container, check systemd:
+  > (env_orca) [~] splunk_orca exec -it  ayu190626070148zfe32_so1_1 bash
+  > [root@so1 splunk]# ps -aef
+  > UID        PID  PPID  C STIME TTY          TIME CMD
+  > root         1     0  0 07:01 ?        00:00:00 /usr/lib/systemd/systemd
+  > root        21     1  0 07:02 ?        00:00:00 /usr/lib/systemd/systemd-journald
+  
+  ---
+  - wlm_cli.cleanup_workload_config
+  
+  - enable boot start with user:
+  ```python
+  rc, stdout, stderr = self.wlmCli.execute_splunk_with_sudo(self.splunk,
+                  'enable boot-start -user eserv '
+                  '-systemd-unit-file-name Splunkd -systemd-managed 1',
+                  withAuth=False)
+  
+  ```
+  
+  ## systemd change 
+  - systemd configure file (.service file) can assign a certain user (splunk) to start splunk (not root)
+  - only sudo to enable boot-start, other command using non-sudu
+  - legacy (test switch user) 
+  - when test 'boot-start' feature, how to switch delployment type (=na)
+  - set up a switch (--no-provision)
+  - the real requirement is splunk not start as systemd service, but started
+  - wlm non-systemd case only run on ec2 (debian9), depending on ec2 version
+  - if systemd existed, cgroup can not be mounted
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

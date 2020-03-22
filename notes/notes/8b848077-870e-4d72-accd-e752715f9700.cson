@@ -1,0 +1,23 @@
+createdAt: "2020-02-04T07:00:19.790Z"
+updatedAt: "2020-02-04T07:35:08.317Z"
+type: "MARKDOWN_NOTE"
+folder: "805110773a610f5a4597"
+title: "Flask Database"
+tags: []
+content: '''
+  # Flask Database
+  - define a model
+  ```python
+  class Note(db.Model):
+      id = db.Column(db.Integer, primary_key=True)
+      body = db.Column(db.Text)
+  ```
+  - common field type
+  ![flask_sql.jpg](:storage\\8b848077-870e-4d72-accd-e752715f9700\\3ef880a7.jpg =700x350)
+  
+  - common field parms
+  ![flask_sql_params.png](:storage\\8b848077-870e-4d72-accd-e752715f9700\\44b5e1bb.png =700x200)
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false

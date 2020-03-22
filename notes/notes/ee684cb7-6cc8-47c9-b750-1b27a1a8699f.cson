@@ -1,0 +1,49 @@
+createdAt: "2020-01-31T13:43:05.564Z"
+updatedAt: "2020-01-31T14:31:17.807Z"
+type: "MARKDOWN_NOTE"
+folder: "805110773a610f5a4597"
+title: "Flask Ajax/server push"
+tags: []
+content: '''
+  # Flask Ajax/server push
+  ## AJAX
+  - use jQuery, auto-load more information
+  ```python
+  @app.route('/post')
+  from jinja2.utils import generate_lorem_ipsum
+  
+  def show_post():
+      post_body = generate_lorem_ipsum(n=2)
+      return \'''
+  <h1>A very long post</h1>
+  <div class="body">%s</div>
+  <button id="load">Load More</button>
+  <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script type="text/javascript">
+  $(function() {
+      $('#load').click(function() {
+          $.ajax({
+              url: '/more', // 目标URL
+              type: 'get', // 请求方法
+              success: function(data){ // 返回2XX响应后触发的回调函数
+                  $('.body').append(data); // 将返回的响应插入到页面中
+              }
+          })
+      })
+  })
+  </script>\''' % post_body
+  
+  
+  @app.route('/more')
+  def load_post():
+      return generate_lorem_ipsum(n=1)
+  
+  ```
+  
+  ## server-side push
+  - Ajax polling, long polling, Server-Sent Event
+  - [Long-Polling, Websockets, Server-Sent Events (SSE) and Comet? - Stack Overflow](https://stackoverflow.com/questions/11077857/what-are-long-polling-websockets-server-sent-events-sse-and-comet/12855533#12855533)
+'''
+linesHighlighted: []
+isStarred: false
+isTrashed: false
