@@ -1,7 +1,6 @@
 import six
 import requests
 import threading
-
 from itertools import chain
 from influxdb import InfluxDBClient
 from locust import runners

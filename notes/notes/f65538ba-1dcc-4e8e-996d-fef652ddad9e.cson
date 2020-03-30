@@ -1,5 +1,5 @@
 createdAt: "2020-03-21T08:48:46.684Z"
-updatedAt: "2020-03-21T09:07:12.115Z"
+updatedAt: "2020-03-22T14:20:11.215Z"
 type: "MARKDOWN_NOTE"
 folder: "b52a7c0642d2c6d5f4b4"
 title: "K8S PV/PVC (local PV)"
@@ -101,6 +101,8 @@ content: '''
       app: nginx-test
   
   ```
+  - Delete PV/PVC
+  > when you delete PVC, please edit PV and delete "ClaimRef"
 '''
 linesHighlighted: []
 isStarred: false

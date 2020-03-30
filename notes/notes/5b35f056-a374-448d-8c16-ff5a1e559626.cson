@@ -1,5 +1,5 @@
 createdAt: "2020-03-19T05:19:11.444Z"
-updatedAt: "2020-03-22T10:39:03.361Z"
+updatedAt: "2020-03-22T10:44:27.773Z"
 type: "MARKDOWN_NOTE"
 folder: "b52a7c0642d2c6d5f4b4"
 title: "K8S service"
@@ -110,7 +110,9 @@ content: '''
     namespace: default
   spec:
     selector:
-      app: nginx
+      app: myapp
+    # use this attr to define headless service
+    clusterIP: "None"
     ports:
     - protocol: TCP
       port: 8080

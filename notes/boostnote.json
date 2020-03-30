@@ -49,6 +49,11 @@
       "key": "b52a7c0642d2c6d5f4b4",
       "color": "#E8D252",
       "name": "kubernetes"
+    },
+    {
+      "key": "af0be880eb1825523a66",
+      "color": "#B013A4",
+      "name": "Helm"
     }
   ],
   "version": "1.0"
