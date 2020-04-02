@@ -8,13 +8,21 @@ package rpc_package;
 
 service Greeter {
     rpc SayHello(HelloRequest) returns (HelloReply) {}
-    rpc SayHelloAgain(HelloRequest) returns (HelloReply) {}
+    rpc SayHelloAgain(AgainRequest) returns (AgainReply) {}
 }
 
 message HelloRequest {
     string name = 1;
 }
 
+message AgainRequest {
+    string city = 1;
+}
+
 message HelloReply {
+    string message = 1;
+}
+
+message AgainReply {
     string message = 1;
 }

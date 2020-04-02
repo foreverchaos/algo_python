@@ -1,0 +1,18 @@
+FROM locustio/locust
+USER root
+RUN apk add --update \
+        build-base \
+        linux-headers \
+        py3-cffi \
+        py3-cryptography \
+        libffi-dev \
+        bash \
+        vim \
+        curl \
+        ca-certificates \
+    && update-ca-certificates \
+    && pip3 install grpcio bcrypt influxdb grpcio-tools \
+    && rm -rf /var/cache/apk/*
+ENV PYTHONPATH "${PYTHONPATH}:/locust_grpc_test"
+CMD ["./docker_start.sh"]
+

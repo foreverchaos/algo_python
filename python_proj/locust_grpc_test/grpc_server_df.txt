@@ -1,0 +1,4 @@
+FROM grpc/python
+VOLUME /grpc_hello
+ENTRYPOINT python /grpc_hello/rpc/hello_server.py
+EXPOSE 50051
